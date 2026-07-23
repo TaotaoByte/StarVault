@@ -14,6 +14,7 @@ import {
   createAiProvider,
   buildEmbeddingText,
   findSimilarItems,
+  migrate,
   type Item,
 } from '@starvault/core';
 import { Button, Card, CardContent, useTheme } from '@starvault/ui';
@@ -83,6 +84,7 @@ export default function App() {
           locateFile: file => `/${file}`,
           data: saved,
         });
+        await migrate(adapter);
         store.setDb(adapter);
         loadItems(adapter);
         setMessage('数据库已就绪');
