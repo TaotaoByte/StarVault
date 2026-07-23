@@ -480,7 +480,9 @@ export default function App() {
           <div className="z-30 flex items-center justify-between gap-4 border-b border-border/50 bg-bg-secondary/80 backdrop-blur px-6 py-2 text-sm text-text-secondary">
             <span>{message}</span>
             <button onClick={() => setMessage('')} className="text-text-tertiary hover:text-text-primary">
-              <X className="h-4 w-4" />
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <X className="h-4 w-4" />
+              </span>
             </button>
           </div>
         )}
@@ -568,7 +570,9 @@ export default function App() {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="text-lg font-semibold">与「{selectedItem.title}」相似的项目</h2>
               <Button variant="ghost" size="sm" onClick={() => setSelectedItem(null)}>
-                <X className="h-4 w-4" />
+                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                  <X className="h-4 w-4" />
+                </span>
               </Button>
             </div>
             <div className="flex-1 overflow-auto p-4 space-y-3">
