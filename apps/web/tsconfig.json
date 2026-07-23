@@ -1,0 +1,13 @@
+{
+  "extends": "@starvault/config/tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@starvault/core": ["../../packages/core/src/index.ts"],
+      "@starvault/core/*": ["../../packages/core/src/*"],
+      "@starvault/ui": ["../../packages/ui/src/index.ts"],
+      "@starvault/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

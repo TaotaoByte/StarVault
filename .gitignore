@@ -1,0 +1,63 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+dist-ssr
+*.local
+build
+out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage
+*.lcov
+
+# Turbo
+.turbo
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Tauri
+target
+src-tauri/target
+
+# Generated sql.js wasm
+apps/web/public/sql-wasm.wasm
+
+# Misc
+.cache
+.temp
+.tmp
