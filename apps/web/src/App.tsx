@@ -21,7 +21,7 @@ import {
   type Item,
 } from '@starvault/core';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge, useTheme } from '@starvault/ui';
-import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2, Wrench, ArrowLeftRight, BarChart3 } from 'lucide-react';
+import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2, Wrench, ArrowLeftRight, BarChart3, Settings, LayoutGrid, Library } from 'lucide-react';
 import { TagNetworkChart } from './components/TagNetworkChart.js';
 import { VirtualItemGrid } from './components/VirtualItemGrid.js';
 import pLimit from 'p-limit';
@@ -30,6 +30,7 @@ import { loadDb, saveDb } from './lib/idb.js';
 import ToolsPage from './pages/ToolsPage.js';
 import ImportExportPage from './pages/ImportExportPage.js';
 import StatsPage from './pages/StatsPage.js';
+import SettingsPage from './pages/SettingsPage.js';
 
 export default function App() {
   const { theme, toggle } = useTheme();
@@ -46,7 +47,7 @@ export default function App() {
   const [similarItems, setSimilarItems] = useState<Item[]>([]);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [isTagging, setIsTagging] = useState(false);
-  const [page, setPage] = useState<'home' | 'tools' | 'import-export' | 'stats'>('home');
+  const [page, setPage] = useState<'home' | 'tools' | 'import-export' | 'stats' | 'settings'>('home');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<ItemFilters>({
     types: [],
@@ -389,164 +390,75 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-bg-primary text-text-primary">
-      <aside className="w-64 border-r border-border bg-bg-secondary p-4 flex flex-col gap-6">
-        <div className="flex items-center gap-2 text-xl font-bold">
-          <Github className="h-6 w-6 text-github" />
+      <aside className="w-56 border-r border-border bg-bg-secondary p-3 flex flex-col gap-2">
+        <div className="flex items-center gap-2 px-3 py-4 text-xl font-bold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white">
+            <Library className="h-5 w-5" />
+          </div>
           StarVault
         </div>
 
-        <div className="space-y-2">
-          <label className="text-xs text-text-tertiary">GitHub Token</label>
-          <Input
-            type="password"
-            placeholder="ghp_xxx"
-            value={store.githubToken}
-            onChange={e => store.setGithubToken(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-text-tertiary">OpenAI Key (可选)</label>
-          <Input
-            type="password"
-            placeholder="sk-xxx"
-            value={aiKey}
-            onChange={e => {
-              setAiKey(e.target.value);
-              localStorage.setItem('sv-ai-key', e.target.value);
-            }}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Button className="w-full gap-2" onClick={handleSync} disabled={store.isSyncing}>
-            <RefreshCw className={`h-4 w-4 ${store.isSyncing ? 'animate-spin' : ''}`} />
-            {store.isSyncing ? '同步中...' : '同步 GitHub Stars'}
-          </Button>
-          <Button variant="secondary" className="w-full gap-2" onClick={addManualItem}>
-            <Plus className="h-4 w-4" />
-            添加收藏
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-text-tertiary">Gist ID（可选）</label>
-          <Input
-            placeholder="留空则自动创建"
-            value={gistId}
-            onChange={e => {
-              setGistId(e.target.value);
-              localStorage.setItem('sv-gist-id', e.target.value);
-            }}
-          />
-          <Button
-            variant="secondary"
-            className="w-full gap-2"
-            onClick={handleGistSync}
-            disabled={isGistSyncing || !store.githubToken}
-          >
-            <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
-            {isGistSyncing ? '同步中...' : '同步到 Gist'}
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-text-tertiary">AI 增强</label>
-          <Button
-            variant="secondary"
-            className="w-full gap-2"
-            onClick={handleGenerateEmbeddings}
-            disabled={isEmbedding || !aiKey}
-          >
-            <Brain className={`h-4 w-4 ${isEmbedding ? 'animate-spin' : ''}`} />
-            {isEmbedding ? '生成中...' : '生成向量 Embedding'}
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full gap-2"
-            onClick={handleGenerateTags}
-            disabled={isTagging || !aiKey}
-          >
-            <Wand2 className={`h-4 w-4 ${isTagging ? 'animate-spin' : ''}`} />
-            {isTagging ? '生成中...' : 'AI 生成标签'}
-          </Button>
-          <Button variant="secondary" className="w-full gap-2" onClick={() => setShowTagNetwork(true)}>
-            <Tags className="h-4 w-4" />
-            标签网络
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-text-tertiary">页面</label>
-          <Button
-            variant={page === 'home' ? 'primary' : 'secondary'}
-            className="w-full gap-2 justify-start"
-            onClick={() => setPage('home')}
-          >
-            <Github className="h-4 w-4" />
+        <nav className="flex-1 space-y-1">
+          <SidebarButton active={page === 'home'} onClick={() => setPage('home')} icon={<LayoutGrid className="h-4 w-4" />}>
             收藏库
-          </Button>
-          <Button
-            variant={page === 'tools' ? 'primary' : 'secondary'}
-            className="w-full gap-2 justify-start"
-            onClick={() => setPage('tools')}
-          >
-            <Wrench className="h-4 w-4" />
+          </SidebarButton>
+          <SidebarButton active={page === 'tools'} onClick={() => setPage('tools')} icon={<Wrench className="h-4 w-4" />}>
             工具箱
-          </Button>
-          <Button
-            variant={page === 'import-export' ? 'primary' : 'secondary'}
-            className="w-full gap-2 justify-start"
-            onClick={() => setPage('import-export')}
-          >
-            <ArrowLeftRight className="h-4 w-4" />
-            导入导出
-          </Button>
-          <Button
-            variant={page === 'stats' ? 'primary' : 'secondary'}
-            className="w-full gap-2 justify-start"
-            onClick={() => setPage('stats')}
-          >
-            <BarChart3 className="h-4 w-4" />
+          </SidebarButton>
+          <SidebarButton active={page === 'stats'} onClick={() => setPage('stats')} icon={<BarChart3 className="h-4 w-4" />}>
             统计面板
-          </Button>
-        </div>
+          </SidebarButton>
+          <SidebarButton active={page === 'import-export'} onClick={() => setPage('import-export')} icon={<ArrowLeftRight className="h-4 w-4" />}>
+            导入导出
+          </SidebarButton>
+        </nav>
 
-        <div className="mt-auto">
-          <Button variant="ghost" className="w-full gap-2" onClick={toggle}>
+        <div className="border-t border-border pt-2 space-y-1">
+          <SidebarButton active={page === 'settings'} onClick={() => setPage('settings')} icon={<Settings className="h-4 w-4" />}>
+            设置
+          </SidebarButton>
+          <button
+            onClick={toggle}
+            className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-primary"
+          >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             {theme === 'dark' ? '浅色模式' : '深色模式'}
-          </Button>
+          </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {page === 'home' && (
           <>
-            <header className="border-b border-border p-4 flex items-center gap-4 flex-wrap">
-              <div className="relative flex-1 max-w-xl min-w-[240px]">
+            <header className="border-b border-border bg-bg-secondary/50 backdrop-blur px-4 py-3 flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 max-w-lg min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
                 <Input
-                  className="pl-9"
+                  className="pl-9 bg-bg-primary"
                   placeholder="搜索项目、标签、描述..."
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center bg-bg-primary rounded-lg border border-border p-1">
                 {(['hybrid', 'keyword', 'semantic'] as const).map(mode => (
-                  <Button
+                  <button
                     key={mode}
-                    variant={searchMode === mode ? 'primary' : 'secondary'}
-                    size="sm"
                     onClick={() => setSearchMode(mode)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      searchMode === mode
+                        ? 'bg-accent text-white'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
                   >
                     {mode === 'hybrid' && '混合'}
                     {mode === 'keyword' && '关键词'}
                     {mode === 'semantic' && '语义'}
-                  </Button>
+                  </button>
                 ))}
               </div>
+
               <Button
                 variant={showFilters ? 'primary' : 'secondary'}
                 size="sm"
@@ -554,7 +466,66 @@ export default function App() {
               >
                 筛选
               </Button>
-              <span className="text-sm text-text-secondary ml-auto">{filteredResults.length} 个项目</span>
+
+              <div className="flex-1" />
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowTagNetwork(true)}
+                  className="gap-1.5"
+                >
+                  <Tags className="h-4 w-4" />
+                  标签网络
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleGenerateTags}
+                  disabled={isTagging || !aiKey}
+                  className="gap-1.5"
+                >
+                  <Wand2 className={`h-4 w-4 ${isTagging ? 'animate-spin' : ''}`} />
+                  {isTagging ? '生成中...' : 'AI 标签'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleGenerateEmbeddings}
+                  disabled={isEmbedding || !aiKey}
+                  className="gap-1.5"
+                >
+                  <Brain className={`h-4 w-4 ${isEmbedding ? 'animate-spin' : ''}`} />
+                  {isEmbedding ? '生成中...' : 'Embedding'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleGistSync}
+                  disabled={isGistSyncing || !store.githubToken}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
+                  {isGistSyncing ? '同步中...' : 'Gist'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSync}
+                  disabled={store.isSyncing}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`h-4 w-4 ${store.isSyncing ? 'animate-spin' : ''}`} />
+                  {store.isSyncing ? '同步中...' : 'Stars'}
+                </Button>
+                <Button size="sm" onClick={addManualItem} className="gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  添加
+                </Button>
+              </div>
+
+              <span className="text-sm text-text-secondary">{filteredResults.length} 个项目</span>
             </header>
 
             {showFilters && (
@@ -565,7 +536,7 @@ export default function App() {
               />
             )}
 
-            <div className="p-4 text-sm text-text-secondary">{message}</div>
+            {message && <div className="px-4 py-2 text-sm text-text-secondary bg-bg-secondary/30">{message}</div>}
 
             <div className="flex-1 min-h-0 p-4">
               <VirtualItemGrid
@@ -634,6 +605,16 @@ export default function App() {
         {page === 'stats' && (
           <div className="flex-1 p-4 overflow-auto">
             <StatsPage />
+          </div>
+        )}
+        {page === 'settings' && (
+          <div className="flex-1 p-4 overflow-auto">
+            <SettingsPage
+              aiKey={aiKey}
+              gistId={gistId}
+              onAiKeyChange={setAiKey}
+              onGistIdChange={setGistId}
+            />
           </div>
         )}
       </main>
@@ -822,6 +803,32 @@ function FilterGroup({ label, children }: { label: string; children: React.React
       <span className="text-xs text-text-tertiary">{label}</span>
       <div className="flex flex-wrap gap-3">{children}</div>
     </div>
+  );
+}
+
+function SidebarButton({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? 'bg-accent text-white'
+          : 'text-text-secondary hover:bg-bg-primary hover:text-text-primary'
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
   );
 }
 
