@@ -12,10 +12,17 @@ import {
   buildTagPrompt,
   truncateReadme,
   GistSyncEngine,
+  createAiProvider,
+  buildEmbeddingText,
+  hybridSearch,
+  semanticSearch,
+  findSimilarItems,
+  buildTagNetwork,
   type Item,
 } from '@starvault/core';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge, useTheme } from '@starvault/ui';
-import { Github, Moon, Search, Sun, Plus, RefreshCw } from 'lucide-react';
+import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2 } from 'lucide-react';
+import { TagNetworkChart } from './components/TagNetworkChart.js';
 import pLimit from 'p-limit';
 import { useAppStore } from './stores/appStore.js';
 import { loadDb, saveDb } from './lib/idb.js';
@@ -29,6 +36,12 @@ export default function App() {
   const [aiKey, setAiKey] = useState(localStorage.getItem('sv-ai-key') ?? '');
   const [gistId, setGistId] = useState(localStorage.getItem('sv-gist-id') ?? '');
   const [isGistSyncing, setIsGistSyncing] = useState(false);
+  const [searchMode, setSearchMode] = useState<'hybrid' | 'keyword' | 'semantic'>('hybrid');
+  const [showTagNetwork, setShowTagNetwork] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [similarItems, setSimilarItems] = useState<Item[]>([]);
+  const [isEmbedding, setIsEmbedding] = useState(false);
+  const [isTagging, setIsTagging] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -64,11 +77,25 @@ export default function App() {
       return;
     }
     const run = async () => {
-      const keywordResults = await keywordSearch(store.db!, query, { limit: 50 });
-      setResults(keywordResults.map(r => r.item));
+      let searchResults: { item: Item; score: number; matchType: string }[] = [];
+      if (searchMode === 'keyword') {
+        searchResults = await keywordSearch(store.db!, query, { limit: 50 });
+      } else if (searchMode === 'semantic') {
+        if (!aiKey) {
+          setMessage('语义搜索需要配置 OpenAI Key');
+          setResults([]);
+          return;
+        }
+        const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+        searchResults = await semanticSearch(store.db!, ai, query, { limit: 50 });
+      } else {
+        const ai = aiKey ? createAiProvider({ provider: 'openai', apiKey: aiKey }) : null;
+        searchResults = await hybridSearch(store.db!, ai, query, { limit: 50 });
+      }
+      setResults(searchResults.map(r => r.item));
     };
     run();
-  }, [query, store.db, store.items]);
+  }, [query, store.db, store.items, searchMode, aiKey]);
 
   const loadItems = (adapter = store.db) => {
     if (!adapter) return;
@@ -163,6 +190,103 @@ export default function App() {
       setMessage(`Gist 同步失败: ${(err as Error).message}`);
     } finally {
       setIsGistSyncing(false);
+    }
+  };
+
+  const handleGenerateEmbeddings = async () => {
+    if (!store.db || !aiKey) {
+      setMessage('请先配置 OpenAI Key');
+      return;
+    }
+    setIsEmbedding(true);
+    setMessage('正在生成向量 Embedding...');
+    try {
+      const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+      const repo = new Repository(store.db);
+      const items = repo.getItems();
+      const limit = pLimit(5);
+      let count = 0;
+      await Promise.all(
+        items.map(item =>
+          limit(async () => {
+            if (repo.getEmbedding(item.id)) return;
+            const text = buildEmbeddingText(item);
+            const embedding = await ai.embed(text);
+            if (embedding.length > 0) {
+              repo.upsertEmbedding({
+                itemId: item.id,
+                embedding: new Float32Array(embedding),
+                model: 'text-embedding-3-small',
+                updatedAt: now(),
+              });
+              count++;
+            }
+          })
+        )
+      );
+      setMessage(`已为 ${count} 个项目生成向量`);
+    } catch (err) {
+      setMessage(`生成向量失败: ${(err as Error).message}`);
+    } finally {
+      setIsEmbedding(false);
+    }
+  };
+
+  const handleGenerateTags = async () => {
+    if (!store.db || !aiKey) {
+      setMessage('请先配置 OpenAI Key');
+      return;
+    }
+    setIsTagging(true);
+    setMessage('正在生成 AI 标签...');
+    try {
+      const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+      const repo = new Repository(store.db);
+      const items = repo.getItems().filter(item => repo.getItemTags(item.id).length === 0);
+      const limit = pLimit(5);
+      await Promise.all(
+        items.map(item =>
+          limit(async () => {
+            const response = await ai.chatCompletion(buildTagPrompt(item));
+            const suggestions = parseTagSuggestions(response);
+            enrichAndInsert(repo, item, suggestions);
+          })
+        )
+      );
+      loadItems();
+      setMessage(`已为 ${items.length} 个项目生成标签`);
+    } catch (err) {
+      setMessage(`生成标签失败: ${(err as Error).message}`);
+    } finally {
+      setIsTagging(false);
+    }
+  };
+
+  const handleShowSimilar = async (item: Item) => {
+    if (!store.db) return;
+    setSelectedItem(item);
+    setSimilarItems([]);
+    try {
+      const ai = aiKey ? createAiProvider({ provider: 'openai', apiKey: aiKey }) : null;
+      const results = await findSimilarItems(store.db, ai, item, { limit: 10 });
+      setSimilarItems(results.map(r => r.item));
+    } catch (err) {
+      setMessage(`相似推荐失败: ${(err as Error).message}`);
+    }
+  };
+
+  const handleGenerateItemTags = async (item: Item) => {
+    if (!store.db || !aiKey) return;
+    try {
+      const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+      const repo = new Repository(store.db);
+      const response = await ai.chatCompletion(buildTagPrompt(item));
+      const suggestions = parseTagSuggestions(response);
+      enrichAndInsert(repo, item, suggestions);
+      loadItems();
+      setMessage(`已为 ${item.title} 生成标签`);
+    } catch (err) {
+      setMessage(`标签生成失败: ${(err as Error).message}`);
     }
   };
 
@@ -262,6 +386,32 @@ export default function App() {
           </Button>
         </div>
 
+        <div className="space-y-2">
+          <label className="text-xs text-text-tertiary">AI 增强</label>
+          <Button
+            variant="secondary"
+            className="w-full gap-2"
+            onClick={handleGenerateEmbeddings}
+            disabled={isEmbedding || !aiKey}
+          >
+            <Brain className={`h-4 w-4 ${isEmbedding ? 'animate-spin' : ''}`} />
+            {isEmbedding ? '生成中...' : '生成向量 Embedding'}
+          </Button>
+          <Button
+            variant="secondary"
+            className="w-full gap-2"
+            onClick={handleGenerateTags}
+            disabled={isTagging || !aiKey}
+          >
+            <Wand2 className={`h-4 w-4 ${isTagging ? 'animate-spin' : ''}`} />
+            {isTagging ? '生成中...' : 'AI 生成标签'}
+          </Button>
+          <Button variant="secondary" className="w-full gap-2" onClick={() => setShowTagNetwork(true)}>
+            <Tags className="h-4 w-4" />
+            标签网络
+          </Button>
+        </div>
+
         <div className="mt-auto">
           <Button variant="ghost" className="w-full gap-2" onClick={toggle}>
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -271,8 +421,8 @@ export default function App() {
       </aside>
 
       <main className="flex-1 flex flex-col">
-        <header className="border-b border-border p-4 flex items-center gap-4">
-          <div className="relative flex-1 max-w-xl">
+        <header className="border-b border-border p-4 flex items-center gap-4 flex-wrap">
+          <div className="relative flex-1 max-w-xl min-w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
             <Input
               className="pl-9"
@@ -281,7 +431,21 @@ export default function App() {
               onChange={e => setQuery(e.target.value)}
             />
           </div>
-          <span className="text-sm text-text-secondary">{store.items.length} 个项目</span>
+          <div className="flex items-center gap-2">
+            {(['hybrid', 'keyword', 'semantic'] as const).map(mode => (
+              <Button
+                key={mode}
+                variant={searchMode === mode ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setSearchMode(mode)}
+              >
+                {mode === 'hybrid' && '混合'}
+                {mode === 'keyword' && '关键词'}
+                {mode === 'semantic' && '语义'}
+              </Button>
+            ))}
+          </div>
+          <span className="text-sm text-text-secondary ml-auto">{store.items.length} 个项目</span>
         </header>
 
         <div className="p-4 text-sm text-text-secondary">{message}</div>
@@ -310,11 +474,85 @@ export default function App() {
                     </Badge>
                   ))}
                 </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => handleGenerateItemTags(item)}
+                    disabled={!aiKey}
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    标签
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => handleShowSimilar(item)}
+                  >
+                    <Brain className="h-3 w-3" />
+                    相似
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       </main>
+
+      {showTagNetwork && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-4xl h-[80vh] bg-bg-primary rounded-xl border border-border shadow-xl flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold">标签网络</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowTagNetwork(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 p-4 overflow-hidden">
+              <TagNetworkChart data={buildTagNetwork(store.items)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl max-h-[80vh] bg-bg-primary rounded-xl border border-border shadow-xl flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold">与「{selectedItem.title}」相似的项目</h2>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedItem(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 space-y-3">
+              {similarItems.length === 0 ? (
+                <p className="text-sm text-text-secondary">暂无相似推荐</p>
+              ) : (
+                similarItems.map(item => (
+                  <Card key={item.id}>
+                    <CardContent className="p-3 flex items-center gap-3">
+                      {item.type === 'github' && <Github className="h-4 w-4" />}
+                      <a
+                        href={item.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium hover:underline"
+                      >
+                        {item.title}
+                      </a>
+                      <span className="text-xs text-text-secondary ml-auto">
+                        {item.githubLanguage ?? 'Unknown'}
+                      </span>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

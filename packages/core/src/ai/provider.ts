@@ -1,4 +1,6 @@
 import type { Item, TagSuggestion } from '../types/index.js';
+import { OpenAiProvider } from './openai.js';
+import { AnthropicProvider } from './anthropic.js';
 
 export interface AiProviderConfig {
   apiKey: string;
@@ -10,6 +12,16 @@ export interface AiProviderConfig {
 export interface AiProvider {
   chatCompletion(prompt: string): Promise<string>;
   embed(text: string): Promise<number[]>;
+}
+
+export const DEFAULT_CHAT_MODEL = 'gpt-4o-mini';
+export const EMBEDDING_MODEL = 'text-embedding-3-small';
+
+export function createAiProvider(config: AiProviderConfig): AiProvider {
+  if (config.provider === 'anthropic') {
+    return new AnthropicProvider(config);
+  }
+  return new OpenAiProvider(config);
 }
 
 export const SUMMARY_PROMPT = `你是一个技术文档摘要专家。请根据以下GitHub项目的README内容，生成一份简洁的中文摘要。

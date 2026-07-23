@@ -1,4 +1,4 @@
-import type { Collection, Item, Tag } from '../types/index.js';
+import type { Collection, Embedding, Item, Tag } from '../types/index.js';
 import { now, stringifyJson } from '../utils/index.js';
 import type { DatabaseAdapter } from './adapter.js';
 
@@ -87,6 +87,10 @@ export class Repository {
        FROM items WHERE is_archived = 0 ORDER BY updated_at DESC`
     );
     return rows.map(row => this.toItem(row));
+  }
+
+  getItemsWithTags(): Item[] {
+    return this.getItems().map(item => ({ ...item, tags: this.getItemTags(item.id) }));
   }
 
   getItemByGithub(owner: string, repo: string): Item | undefined {
@@ -179,6 +183,57 @@ export class Repository {
       itemId,
       collectionId,
     ]);
+  }
+
+  // Embeddings
+  upsertEmbedding(embedding: Embedding): void {
+    const bytes = new Uint8Array(embedding.embedding.buffer);
+    this.adapter.exec(
+      `INSERT INTO embeddings (item_id, embedding, model, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(item_id) DO UPDATE SET
+         embedding = excluded.embedding,
+         model = excluded.model,
+         updated_at = excluded.updated_at`,
+      [embedding.itemId, bytes, embedding.model, embedding.updatedAt]
+    );
+  }
+
+  getEmbedding(itemId: string): Embedding | undefined {
+    const row = this.adapter.querySingle<{
+      itemId: string;
+      embedding: Uint8Array;
+      model: string;
+      updatedAt: string;
+    }>(
+      `SELECT item_id as itemId, embedding, model, updated_at as updatedAt
+       FROM embeddings WHERE item_id = ?`,
+      [itemId]
+    );
+    if (!row) return undefined;
+    return {
+      itemId: row.itemId,
+      embedding: new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4),
+      model: row.model,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  getAllEmbeddings(): Embedding[] {
+    const rows = this.adapter.query<{
+      itemId: string;
+      embedding: Uint8Array;
+      model: string;
+      updatedAt: string;
+    }>(
+      `SELECT item_id as itemId, embedding, model, updated_at as updatedAt FROM embeddings`
+    );
+    return rows.map(row => ({
+      itemId: row.itemId,
+      embedding: new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4),
+      model: row.model,
+      updatedAt: row.updatedAt,
+    }));
   }
 
   // Sync meta

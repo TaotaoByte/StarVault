@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import type { Item } from '../types/index.js';
 
 export function generateId(): string {
   return uuidv4();
@@ -46,4 +47,30 @@ export function stringifyJson(value: unknown): string | null {
 export function truncateReadme(readme: string, maxLength = 6000): string {
   if (readme.length <= maxLength) return readme;
   return readme.slice(0, maxLength);
+}
+
+export function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length === 0 || b.length === 0 || a.length !== b.length) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+export function buildEmbeddingText(item: Item): string {
+  const parts = [
+    item.title,
+    item.description ?? '',
+    item.readmeSummary ?? '',
+    item.githubLanguage ?? '',
+    ...(item.githubTopics ?? []),
+    ...(item.tags ?? []),
+  ];
+  return parts.filter(Boolean).join(' ').slice(0, 8000);
 }
