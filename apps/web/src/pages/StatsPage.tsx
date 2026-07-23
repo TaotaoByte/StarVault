@@ -182,10 +182,10 @@ function SummaryCard({ icon, label, value }: { icon: React.ReactNode; label: str
   return (
     <Card>
       <CardContent className="p-4 flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-accent/10 text-accent">{icon}</div>
-        <div>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-xs text-text-tertiary">{label}</p>
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">{icon}</div>
+        <div className="flex flex-col justify-center">
+          <p className="text-2xl font-bold leading-tight">{value}</p>
+          <p className="text-xs text-text-tertiary leading-tight">{label}</p>
         </div>
       </CardContent>
     </Card>
@@ -197,8 +197,8 @@ function ChartCard({ title, icon, children }: { title: string; icon: React.React
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {icon}
-          {title}
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{icon}</span>
+          <span className="leading-none">{title}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>{children}</CardContent>

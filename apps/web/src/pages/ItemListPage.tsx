@@ -59,11 +59,13 @@ export default function ItemListPage({
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center justify-between gap-4 pb-4">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-accent/10 text-accent">{config.icon}</div>
-          <div>
-            <h1 className="text-xl font-bold">{config.label}</h1>
-            <p className="text-xs text-text-secondary">{filteredItems.length} 个项目</p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+            {config.icon}
+          </div>
+          <div className="flex flex-col justify-center">
+            <h1 className="text-xl font-bold leading-tight">{config.label}</h1>
+            <p className="text-xs text-text-secondary leading-tight">{filteredItems.length} 个项目</p>
           </div>
         </div>
 

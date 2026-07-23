@@ -12,13 +12,13 @@ export default function TagNetworkPage({ items }: TagNetworkPageProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between pb-4">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-accent/10 text-accent">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
             <Share2 className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold">标签网络</h1>
-            <p className="text-xs text-text-secondary">探索标签之间的共现关系</p>
+          <div className="flex flex-col justify-center">
+            <h1 className="text-xl font-bold leading-tight">标签网络</h1>
+            <p className="text-xs text-text-secondary leading-tight">探索标签之间的共现关系</p>
           </div>
         </div>
       </div>

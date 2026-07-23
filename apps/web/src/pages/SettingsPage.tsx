@@ -89,10 +89,7 @@ export default function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Github className="h-5 w-5 text-github" />
-            GitHub
-          </CardTitle>
+          <SectionTitle icon={<Github className="h-5 w-5 text-github" />}>GitHub</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-text-secondary">
@@ -125,10 +122,7 @@ export default function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-emerald-500" />
-            数据同步
-          </CardTitle>
+<SectionTitle icon={<RefreshCw className="h-5 w-5 text-emerald-500" />}>数据同步</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-text-secondary">
@@ -149,10 +143,7 @@ export default function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5 text-amber-500" />
-            AI 服务
-          </CardTitle>
+<SectionTitle icon={<Key className="h-5 w-5 text-amber-500" />}>AI 服务</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-text-secondary">
@@ -173,10 +164,7 @@ export default function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Cloud className="h-5 w-5 text-sky-500" />
-            云端同步
-          </CardTitle>
+<SectionTitle icon={<Cloud className="h-5 w-5 text-sky-500" />}>云端同步</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-text-secondary">
@@ -197,10 +185,7 @@ export default function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-            外观
-          </CardTitle>
+<SectionTitle icon={theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}>外观</SectionTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <div>
@@ -216,10 +201,7 @@ export default function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-danger" />
-            数据管理
-          </CardTitle>
+<SectionTitle icon={<Shield className="h-5 w-5 text-danger" />}>数据管理</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-text-secondary">导出备份或清除本地存储的数据。</p>
@@ -238,10 +220,7 @@ export default function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Info className="h-5 w-5" />
-            关于
-          </CardTitle>
+<SectionTitle icon={<Info className="h-5 w-5" />}>关于</SectionTitle>
         </CardHeader>
         <CardContent className="text-sm text-text-secondary space-y-1">
           <p>StarVault v0.1.0</p>
@@ -255,5 +234,14 @@ export default function SettingsPage({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SectionTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <CardTitle className="flex items-center gap-2">
+      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{icon}</span>
+      <span className="leading-none">{children}</span>
+    </CardTitle>
   );
 }

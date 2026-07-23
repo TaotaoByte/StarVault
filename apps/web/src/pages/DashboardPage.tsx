@@ -99,8 +99,8 @@ export default function DashboardPage({
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              收藏增长趋势
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><TrendingUp className="h-5 w-5" /></span>
+              <span className="leading-none">收藏增长趋势</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -111,8 +111,8 @@ export default function DashboardPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              最近添加
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Clock className="h-5 w-5" /></span>
+              <span className="leading-none">最近添加</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -138,8 +138,8 @@ export default function DashboardPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5" />
-              高星仓库 Top 5
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Star className="h-5 w-5" /></span>
+              <span className="leading-none">高星仓库 Top 5</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -159,8 +159,8 @@ export default function DashboardPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              快捷操作
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Sparkles className="h-5 w-5" /></span>
+              <span className="leading-none">快捷操作</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
@@ -190,10 +190,10 @@ export default function DashboardPage({
 function StatCard({ icon, label, value, onClick }: { icon: React.ReactNode; label: string; value: string | number; onClick?: () => void }) {
   const content = (
     <CardContent className="p-4 flex items-center gap-3">
-      <div className="p-2 rounded-lg bg-accent/10 text-accent">{icon}</div>
-      <div>
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="text-xs text-text-tertiary">{label}</p>
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">{icon}</div>
+      <div className="flex flex-col justify-center">
+        <p className="text-2xl font-bold leading-tight">{value}</p>
+        <p className="text-xs text-text-tertiary leading-tight">{label}</p>
       </div>
     </CardContent>
   );

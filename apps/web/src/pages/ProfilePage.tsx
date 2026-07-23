@@ -40,8 +40,8 @@ export default function ProfilePage({ items, aiKey, githubToken }: ProfilePagePr
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5" />
-              高星仓库 Top 10
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Star className="h-5 w-5" /></span>
+              <span className="leading-none">高星仓库 Top 10</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
