@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   GitHubApi,
   githubRepoToItem,
-  keywordSearch,
   now,
   OpenAiProvider,
   parseTagSuggestions,
@@ -14,48 +13,67 @@ import {
   GistSyncEngine,
   createAiProvider,
   buildEmbeddingText,
-  hybridSearch,
-  semanticSearch,
   findSimilarItems,
-  buildTagNetwork,
   type Item,
 } from '@starvault/core';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge, useTheme } from '@starvault/ui';
-import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2, Wrench, ArrowLeftRight, BarChart3, Settings, LayoutGrid, Library } from 'lucide-react';
-import { TagNetworkChart } from './components/TagNetworkChart.js';
-import { VirtualItemGrid } from './components/VirtualItemGrid.js';
+import { Button, Card, CardContent, useTheme } from '@starvault/ui';
+import {
+  LayoutDashboard,
+  Github,
+  Globe,
+  Box,
+  Wrench,
+  Share2,
+  Brain,
+  Settings,
+  User,
+  Moon,
+  Sun,
+  Sparkles,
+  X,
+  ArrowLeftRight,
+  BarChart3,
+} from 'lucide-react';
 import pLimit from 'p-limit';
 import { useAppStore } from './stores/appStore.js';
 import { loadDb, saveDb } from './lib/idb.js';
+
+import DashboardPage from './pages/DashboardPage.js';
+import ItemListPage from './pages/ItemListPage.js';
+import AiSearchPage from './pages/AiSearchPage.js';
+import TagNetworkPage from './pages/TagNetworkPage.js';
 import ToolsPage from './pages/ToolsPage.js';
 import ImportExportPage from './pages/ImportExportPage.js';
 import StatsPage from './pages/StatsPage.js';
 import SettingsPage from './pages/SettingsPage.js';
+import ProfilePage from './pages/ProfilePage.js';
+
+type Page =
+  | 'dashboard'
+  | 'repositories'
+  | 'websites'
+  | 'software'
+  | 'tools-list'
+  | 'tag-network'
+  | 'ai-search'
+  | 'toolbox'
+  | 'stats'
+  | 'import-export'
+  | 'settings'
+  | 'profile';
 
 export default function App() {
   const { theme, toggle } = useTheme();
   const store = useAppStore();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Item[]>([]);
+  const [page, setPage] = useState<Page>('dashboard');
   const [message, setMessage] = useState('');
   const [aiKey, setAiKey] = useState(localStorage.getItem('sv-ai-key') ?? '');
   const [gistId, setGistId] = useState(localStorage.getItem('sv-gist-id') ?? '');
   const [isGistSyncing, setIsGistSyncing] = useState(false);
-  const [searchMode, setSearchMode] = useState<'hybrid' | 'keyword' | 'semantic'>('hybrid');
-  const [showTagNetwork, setShowTagNetwork] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [similarItems, setSimilarItems] = useState<Item[]>([]);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [isTagging, setIsTagging] = useState(false);
-  const [page, setPage] = useState<'home' | 'tools' | 'import-export' | 'stats' | 'settings'>('home');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<ItemFilters>({
-    types: [],
-    languages: [],
-    tags: [],
-    dateRange: { start: '', end: '' },
-    minStars: 0,
-  });
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [similarItems, setSimilarItems] = useState<Item[]>([]);
 
   useEffect(() => {
     async function init() {
@@ -76,6 +94,24 @@ export default function App() {
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!store.db) return;
+    const timer = setInterval(() => {
+      saveDb(store.db!.export()).catch(() => {});
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [store.db]);
+
+  const loadItems = (adapter = store.db) => {
+    if (!adapter) return;
+    const repo = new Repository(adapter);
+    const items = repo.getItems().map(item => ({
+      ...item,
+      tags: repo.getItemTags(item.id),
+    }));
+    store.setItems(items);
+  };
 
   const handleUrlAdd = (adapter = store.db) => {
     if (!adapter) return;
@@ -125,57 +161,10 @@ export default function App() {
     window.history.replaceState({}, '', newSearch ? `?${newSearch}` : window.location.pathname);
   };
 
-  const filteredResults = useMemo(() => filterItems(results, filters), [results, filters]);
-
-  useEffect(() => {
-    if (!store.db) return;
-    const timer = setInterval(() => {
-      saveDb(store.db!.export()).catch(() => {});
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [store.db]);
-
-  useEffect(() => {
-    if (!store.db) return;
-    if (!query.trim()) {
-      setResults(store.items);
-      return;
-    }
-    const run = async () => {
-      let searchResults: { item: Item; score: number; matchType: string }[] = [];
-      if (searchMode === 'keyword') {
-        searchResults = await keywordSearch(store.db!, query, { limit: 50 });
-      } else if (searchMode === 'semantic') {
-        if (!aiKey) {
-          setMessage('语义搜索需要配置 OpenAI Key');
-          setResults([]);
-          return;
-        }
-        const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
-        searchResults = await semanticSearch(store.db!, ai, query, { limit: 50 });
-      } else {
-        const ai = aiKey ? createAiProvider({ provider: 'openai', apiKey: aiKey }) : null;
-        searchResults = await hybridSearch(store.db!, ai, query, { limit: 50 });
-      }
-      setResults(searchResults.map(r => r.item));
-    };
-    run();
-  }, [query, store.db, store.items, searchMode, aiKey]);
-
-  const loadItems = (adapter = store.db) => {
-    if (!adapter) return;
-    const repo = new Repository(adapter);
-    const items = repo.getItems().map(item => ({
-      ...item,
-      tags: repo.getItemTags(item.id),
-    }));
-    store.setItems(items);
-    setResults(items);
-  };
-
   const handleSync = async () => {
     if (!store.db || !store.githubToken) {
       setMessage('请先配置 GitHub Token');
+      setPage('settings');
       return;
     }
     store.setIsSyncing(true);
@@ -237,7 +226,11 @@ export default function App() {
   };
 
   const handleGistSync = async () => {
-    if (!store.db || !store.githubToken) return;
+    if (!store.db || !store.githubToken) {
+      setMessage('请先配置 GitHub Token');
+      setPage('settings');
+      return;
+    }
     setIsGistSyncing(true);
     setMessage('正在同步到 Gist...');
     try {
@@ -261,6 +254,7 @@ export default function App() {
   const handleGenerateEmbeddings = async () => {
     if (!store.db || !aiKey) {
       setMessage('请先配置 OpenAI Key');
+      setPage('settings');
       return;
     }
     setIsEmbedding(true);
@@ -300,6 +294,7 @@ export default function App() {
   const handleGenerateTags = async () => {
     if (!store.db || !aiKey) {
       setMessage('请先配置 OpenAI Key');
+      setPage('settings');
       return;
     }
     setIsTagging(true);
@@ -341,7 +336,11 @@ export default function App() {
   };
 
   const handleGenerateItemTags = async (item: Item) => {
-    if (!store.db || !aiKey) return;
+    if (!store.db || !aiKey) {
+      setMessage('请先配置 OpenAI Key');
+      setPage('settings');
+      return;
+    }
     try {
       const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
       const repo = new Repository(store.db);
@@ -388,38 +387,85 @@ export default function App() {
     loadItems();
   };
 
+  const pageType = useMemo(() => {
+    switch (page) {
+      case 'repositories':
+        return 'github';
+      case 'websites':
+        return 'website';
+      case 'software':
+        return 'software';
+      case 'tools-list':
+        return 'tool';
+      default:
+        return 'all';
+    }
+  }, [page]);
+
   return (
     <div className="flex min-h-screen bg-bg-primary text-text-primary">
-      <aside className="w-56 border-r border-border bg-bg-secondary p-3 flex flex-col gap-2">
-        <div className="flex items-center gap-2 px-3 py-4 text-xl font-bold">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white">
-            <Library className="h-5 w-5" />
+      <aside className="fixed inset-y-0 left-0 z-40 w-60 bg-bg-secondary/70 backdrop-blur-xl border-r border-white/10 dark:border-white/5 p-4 flex flex-col gap-4 shadow-2xl">
+        <div className="flex items-center gap-3 px-2 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-purple-500 text-white shadow-lg shadow-accent/20">
+            <Sparkles className="h-5 w-5" />
           </div>
-          StarVault
+          <div>
+            <h1 className="text-lg font-bold tracking-tight">StarVault</h1>
+            <p className="text-[10px] text-text-tertiary">AI 收藏管理</p>
+          </div>
         </div>
 
-        <nav className="flex-1 space-y-1">
-          <SidebarButton active={page === 'home'} onClick={() => setPage('home')} icon={<LayoutGrid className="h-4 w-4" />}>
-            收藏库
-          </SidebarButton>
-          <SidebarButton active={page === 'tools'} onClick={() => setPage('tools')} icon={<Wrench className="h-4 w-4" />}>
-            工具箱
-          </SidebarButton>
-          <SidebarButton active={page === 'stats'} onClick={() => setPage('stats')} icon={<BarChart3 className="h-4 w-4" />}>
-            统计面板
-          </SidebarButton>
-          <SidebarButton active={page === 'import-export'} onClick={() => setPage('import-export')} icon={<ArrowLeftRight className="h-4 w-4" />}>
-            导入导出
-          </SidebarButton>
+        <nav className="flex-1 space-y-6 overflow-y-auto">
+          <NavGroup title="概览">
+            <SidebarButton active={page === 'dashboard'} onClick={() => setPage('dashboard')} icon={<LayoutDashboard className="h-4 w-4" />}>
+              仪表盘
+            </SidebarButton>
+            <SidebarButton active={page === 'ai-search'} onClick={() => setPage('ai-search')} icon={<Brain className="h-4 w-4" />}>
+              AI 搜索
+            </SidebarButton>
+          </NavGroup>
+
+          <NavGroup title="收藏">
+            <SidebarButton active={page === 'repositories'} onClick={() => setPage('repositories')} icon={<Github className="h-4 w-4" />}>
+              仓库列表
+            </SidebarButton>
+            <SidebarButton active={page === 'websites'} onClick={() => setPage('websites')} icon={<Globe className="h-4 w-4" />}>
+              网站列表
+            </SidebarButton>
+            <SidebarButton active={page === 'software'} onClick={() => setPage('software')} icon={<Box className="h-4 w-4" />}>
+              软件列表
+            </SidebarButton>
+            <SidebarButton active={page === 'tools-list'} onClick={() => setPage('tools-list')} icon={<Wrench className="h-4 w-4" />}>
+              工具列表
+            </SidebarButton>
+          </NavGroup>
+
+          <NavGroup title="发现">
+            <SidebarButton active={page === 'tag-network'} onClick={() => setPage('tag-network')} icon={<Share2 className="h-4 w-4" />}>
+              标签网络
+            </SidebarButton>
+            <SidebarButton active={page === 'stats'} onClick={() => setPage('stats')} icon={<BarChart3 className="h-4 w-4" />}>
+              统计面板
+            </SidebarButton>
+            <SidebarButton active={page === 'toolbox'} onClick={() => setPage('toolbox')} icon={<Wrench className="h-4 w-4" />}>
+              工具箱
+            </SidebarButton>
+            <SidebarButton active={page === 'import-export'} onClick={() => setPage('import-export')} icon={<ArrowLeftRight className="h-4 w-4" />}>
+              导入导出
+            </SidebarButton>
+          </NavGroup>
         </nav>
 
-        <div className="border-t border-border pt-2 space-y-1">
+        <div className="space-y-1 border-t border-white/10 dark:border-white/5 pt-3">
+          <SidebarButton active={page === 'profile'} onClick={() => setPage('profile')} icon={<User className="h-4 w-4" />}>
+            个人主页
+          </SidebarButton>
           <SidebarButton active={page === 'settings'} onClick={() => setPage('settings')} icon={<Settings className="h-4 w-4" />}>
             设置
           </SidebarButton>
           <button
             onClick={toggle}
-            className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-primary"
+            className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-white/10"
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             {theme === 'dark' ? '浅色模式' : '深色模式'}
@@ -427,217 +473,96 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {page === 'home' && (
-          <>
-            <header className="border-b border-border bg-bg-secondary/50 backdrop-blur px-4 py-3 flex items-center gap-3 flex-wrap">
-              <div className="relative flex-1 max-w-lg min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
-                <Input
-                  className="pl-9 bg-bg-primary"
-                  placeholder="搜索项目、标签、描述..."
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                />
-              </div>
+      <main className="flex-1 flex flex-col overflow-hidden pl-60">
+        {message && (
+          <div className="z-30 flex items-center justify-between gap-4 border-b border-border/50 bg-bg-secondary/80 backdrop-blur px-6 py-2 text-sm text-text-secondary">
+            <span>{message}</span>
+            <button onClick={() => setMessage('')} className="text-text-tertiary hover:text-text-primary">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
-              <div className="flex items-center bg-bg-primary rounded-lg border border-border p-1">
-                {(['hybrid', 'keyword', 'semantic'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setSearchMode(mode)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                      searchMode === mode
-                        ? 'bg-accent text-white'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    {mode === 'hybrid' && '混合'}
-                    {mode === 'keyword' && '关键词'}
-                    {mode === 'semantic' && '语义'}
-                  </button>
-                ))}
-              </div>
+        <div className="flex-1 overflow-auto p-6">
+          {page === 'dashboard' && (
+            <DashboardPage
+              items={store.items}
+              aiKey={aiKey}
+              githubToken={store.githubToken}
+              isSyncing={store.isSyncing}
+              isGistSyncing={isGistSyncing}
+              isEmbedding={isEmbedding}
+              isTagging={isTagging}
+              onSync={handleSync}
+              onGistSync={handleGistSync}
+              onGenerateTags={handleGenerateTags}
+              onGenerateEmbeddings={handleGenerateEmbeddings}
+              onAddItem={addManualItem}
+              onViewType={type => {
+                if (type === 'github') setPage('repositories');
+                else if (type === 'website') setPage('websites');
+                else if (type === 'software') setPage('software');
+                else if (type === 'tool') setPage('tools-list');
+                else setPage('repositories');
+              }}
+            />
+          )}
 
-              <Button
-                variant={showFilters ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setShowFilters(v => !v)}
-              >
-                筛选
-              </Button>
+          {(page === 'repositories' || page === 'websites' || page === 'software' || page === 'tools-list') && (
+            <ItemListPage
+              type={pageType as 'github' | 'website' | 'software' | 'tool'}
+              items={store.items}
+              aiKey={aiKey}
+              githubToken={store.githubToken}
+              isSyncing={store.isSyncing}
+              isGistSyncing={isGistSyncing}
+              onSync={handleSync}
+              onGistSync={handleGistSync}
+              onGenerateItemTags={handleGenerateItemTags}
+              onShowSimilar={handleShowSimilar}
+              onAddItem={addManualItem}
+            />
+          )}
 
-              <div className="flex-1" />
+          {page === 'ai-search' && (
+            <AiSearchPage aiKey={aiKey} onGenerateItemTags={handleGenerateItemTags} onShowSimilar={handleShowSimilar} />
+          )}
 
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowTagNetwork(true)}
-                  className="gap-1.5"
-                >
-                  <Tags className="h-4 w-4" />
-                  标签网络
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleGenerateTags}
-                  disabled={isTagging || !aiKey}
-                  className="gap-1.5"
-                >
-                  <Wand2 className={`h-4 w-4 ${isTagging ? 'animate-spin' : ''}`} />
-                  {isTagging ? '生成中...' : 'AI 标签'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleGenerateEmbeddings}
-                  disabled={isEmbedding || !aiKey}
-                  className="gap-1.5"
-                >
-                  <Brain className={`h-4 w-4 ${isEmbedding ? 'animate-spin' : ''}`} />
-                  {isEmbedding ? '生成中...' : 'Embedding'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleGistSync}
-                  disabled={isGistSyncing || !store.githubToken}
-                  className="gap-1.5"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
-                  {isGistSyncing ? '同步中...' : 'Gist'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleSync}
-                  disabled={store.isSyncing}
-                  className="gap-1.5"
-                >
-                  <RefreshCw className={`h-4 w-4 ${store.isSyncing ? 'animate-spin' : ''}`} />
-                  {store.isSyncing ? '同步中...' : 'Stars'}
-                </Button>
-                <Button size="sm" onClick={addManualItem} className="gap-1.5">
-                  <Plus className="h-4 w-4" />
-                  添加
-                </Button>
-              </div>
+          {page === 'tag-network' && <TagNetworkPage items={store.items} />}
 
-              <span className="text-sm text-text-secondary">{filteredResults.length} 个项目</span>
-            </header>
-
-            {showFilters && (
-              <FilterPanel
-                filters={filters}
-                onChange={setFilters}
-                items={store.items}
-              />
-            )}
-
-            {message && <div className="px-4 py-2 text-sm text-text-secondary bg-bg-secondary/30">{message}</div>}
-
-            <div className="flex-1 min-h-0 p-4">
-              <VirtualItemGrid
-                items={filteredResults}
-                renderItem={(item: Item) => (
-                  <Card className="flex flex-col h-full">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        {item.type === 'github' && <Github className="h-4 w-4" />}
-                        <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline truncate">
-                          {item.title}
-                        </a>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 space-y-2">
-                      <p className="text-sm text-text-secondary line-clamp-3">
-                        {item.readmeSummary || item.description || '暂无描述'}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
-                        {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
-                        {item.tags?.map(tag => (
-                          <Badge key={tag} color="#8b5cf6">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => handleGenerateItemTags(item)}
-                          disabled={!aiKey}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          标签
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => handleShowSimilar(item)}
-                        >
-                          <Brain className="h-3 w-3" />
-                          相似
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              />
+          {page === 'toolbox' && (
+            <div className="h-full overflow-hidden">
+              <ToolsPage />
             </div>
-          </>
-        )}
-        {page === 'tools' && (
-          <div className="flex-1 p-4 overflow-hidden">
-            <ToolsPage />
-          </div>
-        )}
-        {page === 'import-export' && (
-          <div className="flex-1 p-4 overflow-auto">
+          )}
+
+          {page === 'import-export' && (
             <ImportExportPage onImported={() => loadItems()} />
-          </div>
-        )}
-        {page === 'stats' && (
-          <div className="flex-1 p-4 overflow-auto">
-            <StatsPage />
-          </div>
-        )}
-        {page === 'settings' && (
-          <div className="flex-1 p-4 overflow-auto">
+          )}
+
+          {page === 'stats' && <StatsPage />}
+
+          {page === 'settings' && (
             <SettingsPage
               aiKey={aiKey}
               gistId={gistId}
+              githubToken={store.githubToken}
+              isSyncing={store.isSyncing}
+              isGistSyncing={isGistSyncing}
               onAiKeyChange={setAiKey}
               onGistIdChange={setGistId}
+              onSync={handleSync}
+              onGistSync={handleGistSync}
             />
-          </div>
-        )}
+          )}
+
+          {page === 'profile' && <ProfilePage items={store.items} aiKey={aiKey} githubToken={store.githubToken} />}
+        </div>
       </main>
 
-      {showTagNetwork && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-4xl h-[80vh] bg-bg-primary rounded-xl border border-border shadow-xl flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-semibold">标签网络</h2>
-              <Button variant="ghost" size="sm" onClick={() => setShowTagNetwork(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 p-4 overflow-hidden">
-              <TagNetworkChart data={buildTagNetwork(store.items)} />
-            </div>
-          </div>
-        </div>
-      )}
-
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl max-h-[80vh] bg-bg-primary rounded-xl border border-border shadow-xl flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[80vh] bg-bg-primary/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="text-lg font-semibold">与「{selectedItem.title}」相似的项目</h2>
               <Button variant="ghost" size="sm" onClick={() => setSelectedItem(null)}>
@@ -649,20 +574,13 @@ export default function App() {
                 <p className="text-sm text-text-secondary">暂无相似推荐</p>
               ) : (
                 similarItems.map(item => (
-                  <Card key={item.id}>
+                  <Card key={item.id} className="bg-bg-secondary/50">
                     <CardContent className="p-3 flex items-center gap-3">
                       {item.type === 'github' && <Github className="h-4 w-4" />}
-                      <a
-                        href={item.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium hover:underline"
-                      >
+                      <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline truncate flex-1">
                         {item.title}
                       </a>
-                      <span className="text-xs text-text-secondary ml-auto">
-                        {item.githubLanguage ?? 'Unknown'}
-                      </span>
+                      <span className="text-xs text-text-secondary">{item.githubLanguage ?? 'Unknown'}</span>
                     </CardContent>
                   </Card>
                 ))
@@ -671,137 +589,6 @@ export default function App() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-interface ItemFilters {
-  types: string[];
-  languages: string[];
-  tags: string[];
-  dateRange: { start: string; end: string };
-  minStars: number;
-}
-
-function FilterPanel({
-  filters,
-  onChange,
-  items,
-}: {
-  filters: ItemFilters;
-  onChange: (f: ItemFilters) => void;
-  items: Item[];
-}) {
-  const allTypes = useMemo(() => Array.from(new Set(items.map(i => i.type))), [items]);
-  const allLanguages = useMemo(
-    () => Array.from(new Set(items.map(i => i.githubLanguage).filter((l): l is string => !!l))),
-    [items]
-  );
-  const allTags = useMemo(
-    () => Array.from(new Set(items.flatMap(i => i.tags ?? []))).sort(),
-    [items]
-  );
-
-  const toggle = (key: keyof ItemFilters, value: string) => {
-    const list = filters[key] as string[];
-    const next = list.includes(value) ? list.filter(v => v !== value) : [...list, value];
-    onChange({ ...filters, [key]: next });
-  };
-
-  const clear = () => {
-    onChange({ types: [], languages: [], tags: [], dateRange: { start: '', end: '' }, minStars: 0 });
-  };
-
-  return (
-    <div className="border-b border-border p-4 bg-bg-secondary space-y-4">
-      <div className="flex flex-wrap gap-6">
-        <FilterGroup label="类型">
-          {allTypes.map(type => (
-            <label key={type} className="flex items-center gap-2 text-sm text-text-secondary">
-              <input
-                type="checkbox"
-                checked={filters.types.includes(type)}
-                onChange={() => toggle('types', type)}
-              />
-              {typeLabel(type)}
-            </label>
-          ))}
-        </FilterGroup>
-
-        <FilterGroup label="语言">
-          {allLanguages.map(lang => (
-            <label key={lang} className="flex items-center gap-2 text-sm text-text-secondary">
-              <input
-                type="checkbox"
-                checked={filters.languages.includes(lang)}
-                onChange={() => toggle('languages', lang)}
-              />
-              {lang}
-            </label>
-          ))}
-        </FilterGroup>
-
-        <FilterGroup label="标签">
-          <div className="flex flex-wrap gap-2 max-w-md">
-            {allTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => toggle('tags', tag)}
-                className={`px-2 py-1 rounded-full text-xs border transition-colors ${
-                  filters.tags.includes(tag)
-                    ? 'bg-accent text-white border-accent'
-                    : 'border-border text-text-secondary hover:border-accent'
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </FilterGroup>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="space-y-1">
-          <label className="text-xs text-text-tertiary">收藏时间起</label>
-          <input
-            type="date"
-            className="rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary"
-            value={filters.dateRange.start}
-            onChange={e => onChange({ ...filters, dateRange: { ...filters.dateRange, start: e.target.value } })}
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-text-tertiary">收藏时间止</label>
-          <input
-            type="date"
-            className="rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary"
-            value={filters.dateRange.end}
-            onChange={e => onChange({ ...filters, dateRange: { ...filters.dateRange, end: e.target.value } })}
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-text-tertiary">最低 Stars</label>
-          <input
-            type="number"
-            min={0}
-            className="w-32 rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary"
-            value={filters.minStars || ''}
-            onChange={e => onChange({ ...filters, minStars: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <Button variant="ghost" size="sm" onClick={clear}>
-          清除筛选
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <span className="text-xs text-text-tertiary">{label}</span>
-      <div className="flex flex-wrap gap-3">{children}</div>
     </div>
   );
 }
@@ -820,10 +607,10 @@ function SidebarButton({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
         active
-          ? 'bg-accent text-white'
-          : 'text-text-secondary hover:bg-bg-primary hover:text-text-primary'
+          ? 'bg-accent text-white shadow-lg shadow-accent/20'
+          : 'text-text-secondary hover:bg-white/10 hover:text-text-primary'
       }`}
     >
       {icon}
@@ -832,21 +619,13 @@ function SidebarButton({
   );
 }
 
-function typeLabel(type: string): string {
-  const map: Record<string, string> = { github: 'GitHub', website: '网站', software: '软件', tool: '工具' };
-  return map[type] ?? type;
-}
-
-function filterItems(items: Item[], filters: ItemFilters): Item[] {
-  return items.filter(item => {
-    if (filters.types.length > 0 && !filters.types.includes(item.type)) return false;
-    if (filters.languages.length > 0 && !filters.languages.includes(item.githubLanguage ?? '')) return false;
-    if (filters.tags.length > 0 && !filters.tags.some(t => item.tags?.includes(t))) return false;
-    if (filters.minStars > 0 && (item.githubStars ?? 0) < filters.minStars) return false;
-    if (filters.dateRange.start && item.createdAt < filters.dateRange.start) return false;
-    if (filters.dateRange.end && item.createdAt > filters.dateRange.end + 'T23:59:59') return false;
-    return true;
-  });
+function NavGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">{title}</div>
+      {children}
+    </div>
+  );
 }
 
 function enrichAndInsert(

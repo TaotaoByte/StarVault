@@ -2,20 +2,30 @@ import { useState } from 'react';
 import { exportToJson } from '@starvault/core';
 import { Button, Card, CardContent, CardHeader, CardTitle, useTheme } from '@starvault/ui';
 import { useAppStore } from '../stores/appStore.js';
-import { Github, Key, Cloud, Moon, Sun, Trash2, Download, Shield, Info } from 'lucide-react';
+import { Github, Key, Cloud, Moon, Sun, Trash2, Download, Shield, Info, RefreshCw } from 'lucide-react';
 
 interface SettingsPageProps {
   aiKey?: string;
   gistId?: string;
+  githubToken?: string;
+  isSyncing?: boolean;
+  isGistSyncing?: boolean;
   onAiKeyChange?: (value: string) => void;
   onGistIdChange?: (value: string) => void;
+  onSync?: () => void;
+  onGistSync?: () => void;
 }
 
 export default function SettingsPage({
   aiKey: propAiKey,
   gistId: propGistId,
+  githubToken: propGithubToken,
+  isSyncing,
+  isGistSyncing,
   onAiKeyChange,
   onGistIdChange,
+  onSync,
+  onGistSync,
 }: SettingsPageProps) {
   const store = useAppStore();
   const { theme, toggle } = useTheme();
@@ -23,6 +33,7 @@ export default function SettingsPage({
   const [localGistId, setLocalGistId] = useState(localStorage.getItem('sv-gist-id') ?? '');
   const aiKey = propAiKey ?? localAiKey;
   const gistId = propGistId ?? localGistId;
+  const githubToken = propGithubToken ?? store.githubToken;
   const [message, setMessage] = useState('');
 
   const saveAiKey = (value: string) => {
@@ -108,6 +119,30 @@ export default function SettingsPage({
               </a>{' '}
               生成，需要 public_repo 或 repo 权限。
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 text-emerald-500" />
+            数据同步
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            从 GitHub Stars 拉取新项目，或通过 Gist 在设备间同步数据库。
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={onSync} disabled={isSyncing || !githubToken} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? '同步中...' : '同步 GitHub Stars'}
+            </Button>
+            <Button variant="secondary" onClick={onGistSync} disabled={isGistSyncing || !githubToken} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
+              {isGistSyncing ? '同步中...' : '同步到 Gist'}
+            </Button>
           </div>
         </CardContent>
       </Card>
