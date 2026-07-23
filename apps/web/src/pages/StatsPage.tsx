@@ -155,8 +155,10 @@ export default function StatsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Star className="h-5 w-5" />
-            高星项目 Top 10
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
+              <Star className="h-5 w-5" />
+            </span>
+            <span className="leading-none mt-px">高星项目 Top 10</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -198,7 +200,7 @@ function ChartCard({ title, icon, children }: { title: string; icon: React.React
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{icon}</span>
-          <span className="leading-none">{title}</span>
+          <span className="leading-none mt-px">{title}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>{children}</CardContent>

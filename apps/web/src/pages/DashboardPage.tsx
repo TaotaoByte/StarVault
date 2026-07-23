@@ -78,12 +78,16 @@ export default function DashboardPage({
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={onGistSync} disabled={isGistSyncing || !githubToken} className="gap-1.5">
-            <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
-            {isGistSyncing ? '同步中...' : '同步 Gist'}
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+              <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
+            </span>
+            <span className="mt-px">{isGistSyncing ? '同步中...' : '同步 Gist'}</span>
           </Button>
           <Button size="sm" onClick={onSync} disabled={isSyncing || !githubToken} className="gap-1.5">
-            <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? '同步中...' : '同步 Stars'}
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            </span>
+            <span className="mt-px">{isSyncing ? '同步中...' : '同步 Stars'}</span>
           </Button>
         </div>
       </div>
@@ -100,7 +104,7 @@ export default function DashboardPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><TrendingUp className="h-5 w-5" /></span>
-              <span className="leading-none">收藏增长趋势</span>
+              <span className="leading-none mt-px">收藏增长趋势</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -112,7 +116,7 @@ export default function DashboardPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Clock className="h-5 w-5" /></span>
-              <span className="leading-none">最近添加</span>
+              <span className="leading-none mt-px">最近添加</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -125,8 +129,10 @@ export default function DashboardPage({
                 rel="noreferrer"
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-bg-secondary transition-colors"
               >
-                {item.type === 'github' ? <Github className="h-4 w-4 text-github" /> : <Globe className="h-4 w-4 text-accent" />}
-                <span className="text-sm truncate flex-1">{item.title}</span>
+                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                  {item.type === 'github' ? <Github className="h-4 w-4 text-github" /> : <Globe className="h-4 w-4 text-accent" />}
+                </span>
+                <span className="leading-none mt-px text-sm flex-1 truncate">{item.title}</span>
                 <span className="text-xs text-text-tertiary">{new Date(item.createdAt).toLocaleDateString()}</span>
               </a>
             ))}
@@ -139,7 +145,7 @@ export default function DashboardPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Star className="h-5 w-5" /></span>
-              <span className="leading-none">高星仓库 Top 5</span>
+              <span className="leading-none mt-px">高星仓库 Top 5</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -160,25 +166,33 @@ export default function DashboardPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Sparkles className="h-5 w-5" /></span>
-              <span className="leading-none">快捷操作</span>
+              <span className="leading-none mt-px">快捷操作</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
             <Button variant="secondary" onClick={onAddItem} className="gap-2">
-              <Plus className="h-4 w-4" />
-              添加收藏
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <Plus className="h-4 w-4" />
+              </span>
+              <span className="mt-px">添加收藏</span>
             </Button>
             <Button variant="secondary" onClick={onGenerateTags} disabled={isTagging || !aiKey} className="gap-2">
-              <Wand2 className={`h-4 w-4 ${isTagging ? 'animate-spin' : ''}`} />
-              AI 标签
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <Wand2 className={`h-4 w-4 ${isTagging ? 'animate-spin' : ''}`} />
+              </span>
+              <span className="mt-px">AI 标签</span>
             </Button>
             <Button variant="secondary" onClick={onGenerateEmbeddings} disabled={isEmbedding || !aiKey} className="gap-2">
-              <Brain className={`h-4 w-4 ${isEmbedding ? 'animate-spin' : ''}`} />
-              生成 Embedding
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <Brain className={`h-4 w-4 ${isEmbedding ? 'animate-spin' : ''}`} />
+              </span>
+              <span className="mt-px">生成 Embedding</span>
             </Button>
             <Button variant="secondary" onClick={() => onViewType('github')} className="gap-2">
-              <Github className="h-4 w-4" />
-              浏览仓库
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <Github className="h-4 w-4" />
+              </span>
+              <span className="mt-px">浏览仓库</span>
             </Button>
           </CardContent>
         </Card>

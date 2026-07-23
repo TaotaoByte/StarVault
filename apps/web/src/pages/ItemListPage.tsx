@@ -81,17 +81,23 @@ export default function ItemListPage({
           </div>
           {type === 'github' && (
             <Button variant="secondary" size="sm" onClick={onSync} disabled={isSyncing || !githubToken} className="gap-1.5">
-              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? '同步中...' : '同步 Stars'}
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              </span>
+              <span className="mt-px">{isSyncing ? '同步中...' : '同步 Stars'}</span>
             </Button>
           )}
           <Button variant="secondary" size="sm" onClick={onGistSync} disabled={isGistSyncing || !githubToken} className="gap-1.5">
-            <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
-            {isGistSyncing ? '同步中...' : '同步 Gist'}
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+              <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
+            </span>
+            <span className="mt-px">{isGistSyncing ? '同步中...' : '同步 Gist'}</span>
           </Button>
           <Button size="sm" onClick={onAddItem} className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            添加
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+              <Plus className="h-4 w-4" />
+            </span>
+            <span className="mt-px">添加</span>
           </Button>
         </div>
       </header>
@@ -109,10 +115,16 @@ export default function ItemListPage({
               <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    {item.type === 'github' && <Github className="h-4 w-4" />}
-                    <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline truncate">
-                      {item.title}
-                    </a>
+                    {item.type === 'github' && (
+                      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                        <Github className="h-4 w-4" />
+                      </span>
+                    )}
+                    <span className="leading-none mt-px flex-1 truncate">
+                      <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                        {item.title}
+                      </a>
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-2">
@@ -136,12 +148,16 @@ export default function ItemListPage({
                       onClick={() => onGenerateItemTags(item)}
                       disabled={!aiKey}
                     >
-                      <Sparkles className="h-3 w-3" />
-                      标签
+                      <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
+                        <Sparkles className="h-3 w-3" />
+                      </span>
+                      <span className="mt-px">标签</span>
                     </Button>
                     <Button variant="ghost" size="sm" className="gap-1" onClick={() => onShowSimilar(item)}>
-                      <Brain className="h-3 w-3" />
-                      相似
+                      <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
+                        <Brain className="h-3 w-3" />
+                      </span>
+                      <span className="mt-px">相似</span>
                     </Button>
                   </div>
                 </CardContent>

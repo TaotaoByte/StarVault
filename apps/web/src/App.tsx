@@ -470,7 +470,7 @@ export default function App() {
             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </span>
-            <span className="leading-none">{theme === 'dark' ? '浅色模式' : '深色模式'}</span>
+            <span className="leading-none mt-px">{theme === 'dark' ? '浅色模式' : '深色模式'}</span>
           </button>
         </div>
       </aside>
@@ -578,10 +578,16 @@ export default function App() {
                 similarItems.map(item => (
                   <Card key={item.id} className="bg-bg-secondary/50">
                     <CardContent className="p-3 flex items-center gap-3">
-                      {item.type === 'github' && <Github className="h-4 w-4" />}
-                      <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline truncate flex-1">
-                        {item.title}
-                      </a>
+                      {item.type === 'github' && (
+                        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                          <Github className="h-4 w-4" />
+                        </span>
+                      )}
+                      <span className="leading-none mt-px flex-1 truncate">
+                        <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+                          {item.title}
+                        </a>
+                      </span>
                       <span className="text-xs text-text-secondary">{item.githubLanguage ?? 'Unknown'}</span>
                     </CardContent>
                   </Card>
@@ -616,7 +622,7 @@ function SidebarButton({
       }`}
     >
       <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{icon}</span>
-      <span className="truncate leading-none">{children}</span>
+      <span className="truncate leading-none mt-px">{children}</span>
     </button>
   );
 }

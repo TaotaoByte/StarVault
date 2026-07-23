@@ -73,8 +73,10 @@ function ToolButton({
         active ? 'bg-accent text-white' : 'hover:bg-bg-tertiary text-text-primary'
       }`}
     >
-      <Icon className="h-4 w-4" />
-      {tool.name}
+      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="leading-none mt-px">{tool.name}</span>
     </button>
   );
 }
@@ -129,8 +131,10 @@ function JsonFormatter() {
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <Button size="sm" onClick={() => copy(result.formatted)} disabled={!result.valid || copied}>
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              复制格式化
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </span>
+              <span className="mt-px">复制格式化</span>
             </Button>
             <Button size="sm" variant="secondary" onClick={() => copy(result.compact)} disabled={!result.valid || copied}>
               复制压缩

@@ -130,13 +130,17 @@ export default function SettingsPage({
           </p>
           <div className="flex flex-wrap gap-3">
             <Button onClick={onSync} disabled={isSyncing || !githubToken} className="gap-2">
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? '同步中...' : '同步 GitHub Stars'}
-            </Button>
-            <Button variant="secondary" onClick={onGistSync} disabled={isGistSyncing || !githubToken} className="gap-2">
+            </span>
+            <span className="mt-px">{isSyncing ? '同步中...' : '同步 GitHub Stars'}</span>
+          </Button>
+          <Button variant="secondary" onClick={onGistSync} disabled={isGistSyncing || !githubToken} className="gap-2">
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
-              {isGistSyncing ? '同步中...' : '同步到 Gist'}
-            </Button>
+            </span>
+            <span className="mt-px">{isGistSyncing ? '同步中...' : '同步到 Gist'}</span>
+          </Button>
           </div>
         </CardContent>
       </Card>
@@ -193,8 +197,10 @@ export default function SettingsPage({
             <p className="text-sm text-text-secondary">切换界面主题</p>
           </div>
           <Button variant="secondary" onClick={toggle} className="gap-2">
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            切换
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </span>
+            <span className="mt-px">切换</span>
           </Button>
         </CardContent>
       </Card>
@@ -207,13 +213,17 @@ export default function SettingsPage({
           <p className="text-sm text-text-secondary">导出备份或清除本地存储的数据。</p>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={handleExport} disabled={!store.db} className="gap-2">
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <Download className="h-4 w-4" />
-              导出 JSON
-            </Button>
-            <Button variant="ghost" onClick={handleClearLocalData} className="gap-2 text-danger hover:text-danger">
+            </span>
+            <span className="mt-px">导出 JSON</span>
+          </Button>
+          <Button variant="ghost" onClick={handleClearLocalData} className="gap-2 text-danger hover:text-danger">
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <Trash2 className="h-4 w-4" />
-              清除本地数据
-            </Button>
+            </span>
+            <span className="mt-px">清除本地数据</span>
+          </Button>
           </div>
         </CardContent>
       </Card>
@@ -241,7 +251,7 @@ function SectionTitle({ icon, children }: { icon: React.ReactNode; children: Rea
   return (
     <CardTitle className="flex items-center gap-2">
       <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{icon}</span>
-      <span className="leading-none">{children}</span>
+      <span className="leading-none mt-px">{children}</span>
     </CardTitle>
   );
 }
