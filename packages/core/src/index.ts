@@ -7,3 +7,4 @@ export * from './search/index.js';
 export * from './github/index.js';
 export * from './tools/index.js';
 export * from './import-export/index.js';
+export * from './stats/index.js';

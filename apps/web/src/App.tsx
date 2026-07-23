@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   GitHubApi,
   githubRepoToItem,
@@ -21,13 +21,15 @@ import {
   type Item,
 } from '@starvault/core';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge, useTheme } from '@starvault/ui';
-import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2, Wrench, ArrowLeftRight } from 'lucide-react';
+import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2, Wrench, ArrowLeftRight, BarChart3 } from 'lucide-react';
 import { TagNetworkChart } from './components/TagNetworkChart.js';
+import { VirtualItemGrid } from './components/VirtualItemGrid.js';
 import pLimit from 'p-limit';
 import { useAppStore } from './stores/appStore.js';
 import { loadDb, saveDb } from './lib/idb.js';
 import ToolsPage from './pages/ToolsPage.js';
 import ImportExportPage from './pages/ImportExportPage.js';
+import StatsPage from './pages/StatsPage.js';
 
 export default function App() {
   const { theme, toggle } = useTheme();
@@ -44,7 +46,15 @@ export default function App() {
   const [similarItems, setSimilarItems] = useState<Item[]>([]);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [isTagging, setIsTagging] = useState(false);
-  const [page, setPage] = useState<'home' | 'tools' | 'import-export'>('home');
+  const [page, setPage] = useState<'home' | 'tools' | 'import-export' | 'stats'>('home');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<ItemFilters>({
+    types: [],
+    languages: [],
+    tags: [],
+    dateRange: { start: '', end: '' },
+    minStars: 0,
+  });
 
   useEffect(() => {
     async function init() {
@@ -113,6 +123,8 @@ export default function App() {
     const newSearch = params.toString();
     window.history.replaceState({}, '', newSearch ? `?${newSearch}` : window.location.pathname);
   };
+
+  const filteredResults = useMemo(() => filterItems(results, filters), [results, filters]);
 
   useEffect(() => {
     if (!store.db) return;
@@ -490,6 +502,14 @@ export default function App() {
             <ArrowLeftRight className="h-4 w-4" />
             导入导出
           </Button>
+          <Button
+            variant={page === 'stats' ? 'primary' : 'secondary'}
+            className="w-full gap-2 justify-start"
+            onClick={() => setPage('stats')}
+          >
+            <BarChart3 className="h-4 w-4" />
+            统计面板
+          </Button>
         </div>
 
         <div className="mt-auto">
@@ -527,59 +547,77 @@ export default function App() {
                   </Button>
                 ))}
               </div>
-              <span className="text-sm text-text-secondary ml-auto">{store.items.length} 个项目</span>
+              <Button
+                variant={showFilters ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setShowFilters(v => !v)}
+              >
+                筛选
+              </Button>
+              <span className="text-sm text-text-secondary ml-auto">{filteredResults.length} 个项目</span>
             </header>
+
+            {showFilters && (
+              <FilterPanel
+                filters={filters}
+                onChange={setFilters}
+                items={store.items}
+              />
+            )}
 
             <div className="p-4 text-sm text-text-secondary">{message}</div>
 
-            <div className="flex-1 p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 content-start overflow-auto">
-              {results.map(item => (
-                <Card key={item.id} className="flex flex-col">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      {item.type === 'github' && <Github className="h-4 w-4" />}
-                      <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">
-                        {item.title}
-                      </a>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-1 space-y-2">
-                    <p className="text-sm text-text-secondary line-clamp-3">
-                      {item.readmeSummary || item.description || '暂无描述'}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
-                      {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
-                      {item.tags?.map(tag => (
-                        <Badge key={tag} color="#8b5cf6">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1"
-                        onClick={() => handleGenerateItemTags(item)}
-                        disabled={!aiKey}
-                      >
-                        <Sparkles className="h-3 w-3" />
-                        标签
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1"
-                        onClick={() => handleShowSimilar(item)}
-                      >
-                        <Brain className="h-3 w-3" />
-                        相似
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="flex-1 min-h-0 p-4">
+              <VirtualItemGrid
+                items={filteredResults}
+                renderItem={(item: Item) => (
+                  <Card className="flex flex-col h-full">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        {item.type === 'github' && <Github className="h-4 w-4" />}
+                        <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline truncate">
+                          {item.title}
+                        </a>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 space-y-2">
+                      <p className="text-sm text-text-secondary line-clamp-3">
+                        {item.readmeSummary || item.description || '暂无描述'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
+                        {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
+                        {item.tags?.map(tag => (
+                          <Badge key={tag} color="#8b5cf6">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => handleGenerateItemTags(item)}
+                          disabled={!aiKey}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          标签
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => handleShowSimilar(item)}
+                        >
+                          <Brain className="h-3 w-3" />
+                          相似
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              />
             </div>
           </>
         )}
@@ -591,6 +629,11 @@ export default function App() {
         {page === 'import-export' && (
           <div className="flex-1 p-4 overflow-auto">
             <ImportExportPage onImported={() => loadItems()} />
+          </div>
+        )}
+        {page === 'stats' && (
+          <div className="flex-1 p-4 overflow-auto">
+            <StatsPage />
           </div>
         )}
       </main>
@@ -649,6 +692,154 @@ export default function App() {
       )}
     </div>
   );
+}
+
+interface ItemFilters {
+  types: string[];
+  languages: string[];
+  tags: string[];
+  dateRange: { start: string; end: string };
+  minStars: number;
+}
+
+function FilterPanel({
+  filters,
+  onChange,
+  items,
+}: {
+  filters: ItemFilters;
+  onChange: (f: ItemFilters) => void;
+  items: Item[];
+}) {
+  const allTypes = useMemo(() => Array.from(new Set(items.map(i => i.type))), [items]);
+  const allLanguages = useMemo(
+    () => Array.from(new Set(items.map(i => i.githubLanguage).filter((l): l is string => !!l))),
+    [items]
+  );
+  const allTags = useMemo(
+    () => Array.from(new Set(items.flatMap(i => i.tags ?? []))).sort(),
+    [items]
+  );
+
+  const toggle = (key: keyof ItemFilters, value: string) => {
+    const list = filters[key] as string[];
+    const next = list.includes(value) ? list.filter(v => v !== value) : [...list, value];
+    onChange({ ...filters, [key]: next });
+  };
+
+  const clear = () => {
+    onChange({ types: [], languages: [], tags: [], dateRange: { start: '', end: '' }, minStars: 0 });
+  };
+
+  return (
+    <div className="border-b border-border p-4 bg-bg-secondary space-y-4">
+      <div className="flex flex-wrap gap-6">
+        <FilterGroup label="类型">
+          {allTypes.map(type => (
+            <label key={type} className="flex items-center gap-2 text-sm text-text-secondary">
+              <input
+                type="checkbox"
+                checked={filters.types.includes(type)}
+                onChange={() => toggle('types', type)}
+              />
+              {typeLabel(type)}
+            </label>
+          ))}
+        </FilterGroup>
+
+        <FilterGroup label="语言">
+          {allLanguages.map(lang => (
+            <label key={lang} className="flex items-center gap-2 text-sm text-text-secondary">
+              <input
+                type="checkbox"
+                checked={filters.languages.includes(lang)}
+                onChange={() => toggle('languages', lang)}
+              />
+              {lang}
+            </label>
+          ))}
+        </FilterGroup>
+
+        <FilterGroup label="标签">
+          <div className="flex flex-wrap gap-2 max-w-md">
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => toggle('tags', tag)}
+                className={`px-2 py-1 rounded-full text-xs border transition-colors ${
+                  filters.tags.includes(tag)
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-border text-text-secondary hover:border-accent'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </FilterGroup>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="space-y-1">
+          <label className="text-xs text-text-tertiary">收藏时间起</label>
+          <input
+            type="date"
+            className="rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary"
+            value={filters.dateRange.start}
+            onChange={e => onChange({ ...filters, dateRange: { ...filters.dateRange, start: e.target.value } })}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-text-tertiary">收藏时间止</label>
+          <input
+            type="date"
+            className="rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary"
+            value={filters.dateRange.end}
+            onChange={e => onChange({ ...filters, dateRange: { ...filters.dateRange, end: e.target.value } })}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-text-tertiary">最低 Stars</label>
+          <input
+            type="number"
+            min={0}
+            className="w-32 rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary"
+            value={filters.minStars || ''}
+            onChange={e => onChange({ ...filters, minStars: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <Button variant="ghost" size="sm" onClick={clear}>
+          清除筛选
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <span className="text-xs text-text-tertiary">{label}</span>
+      <div className="flex flex-wrap gap-3">{children}</div>
+    </div>
+  );
+}
+
+function typeLabel(type: string): string {
+  const map: Record<string, string> = { github: 'GitHub', website: '网站', software: '软件', tool: '工具' };
+  return map[type] ?? type;
+}
+
+function filterItems(items: Item[], filters: ItemFilters): Item[] {
+  return items.filter(item => {
+    if (filters.types.length > 0 && !filters.types.includes(item.type)) return false;
+    if (filters.languages.length > 0 && !filters.languages.includes(item.githubLanguage ?? '')) return false;
+    if (filters.tags.length > 0 && !filters.tags.some(t => item.tags?.includes(t))) return false;
+    if (filters.minStars > 0 && (item.githubStars ?? 0) < filters.minStars) return false;
+    if (filters.dateRange.start && item.createdAt < filters.dateRange.start) return false;
+    if (filters.dateRange.end && item.createdAt > filters.dateRange.end + 'T23:59:59') return false;
+    return true;
+  });
 }
 
 function enrichAndInsert(
