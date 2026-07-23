@@ -89,16 +89,16 @@ export default function ImportExportPage({ onImported }: ImportExportPageProps) 
             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
               <Download className="h-5 w-5" />
             </span>
-            <span className="leading-none mt-px">导出数据</span>
+            <span className="flex h-5 items-center leading-none">导出数据</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-text-secondary">将所有项目、标签、分类导出为 JSON 文件。</p>
-          <Button onClick={handleExport} disabled={!store.db}>
+          <Button onClick={handleExport} disabled={!store.db} className="gap-1.5">
             <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <FileJson className="h-4 w-4" />
             </span>
-            <span className="mt-px">导出 JSON</span>
+            <span className="flex h-4 items-center leading-none">导出 JSON</span>
           </Button>
         </CardContent>
       </Card>
@@ -109,7 +109,7 @@ export default function ImportExportPage({ onImported }: ImportExportPageProps) 
             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
               <Upload className="h-5 w-5" />
             </span>
-            <span className="leading-none mt-px">导入 JSON</span>
+            <span className="flex h-5 items-center leading-none">导入 JSON</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -121,11 +121,11 @@ export default function ImportExportPage({ onImported }: ImportExportPageProps) 
             className="hidden"
             onChange={handleImportJson}
           />
-          <Button variant="secondary" onClick={() => jsonInputRef.current?.click()} disabled={!store.db}>
+          <Button variant="secondary" onClick={() => jsonInputRef.current?.click()} disabled={!store.db} className="gap-1.5">
             <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <FileJson className="h-4 w-4" />
             </span>
-            <span className="mt-px">选择 JSON 文件</span>
+            <span className="flex h-4 items-center leading-none">选择 JSON 文件</span>
           </Button>
         </CardContent>
       </Card>
@@ -136,7 +136,7 @@ export default function ImportExportPage({ onImported }: ImportExportPageProps) 
             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
               <Globe className="h-5 w-5" />
             </span>
-            <span className="leading-none mt-px">导入 HTML 书签</span>
+            <span className="flex h-5 items-center leading-none">导入 HTML 书签</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -148,11 +148,11 @@ export default function ImportExportPage({ onImported }: ImportExportPageProps) 
             className="hidden"
             onChange={handleImportHtml}
           />
-          <Button variant="secondary" onClick={() => htmlInputRef.current?.click()} disabled={!store.db}>
+          <Button variant="secondary" onClick={() => htmlInputRef.current?.click()} disabled={!store.db} className="gap-1.5">
             <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <Globe className="h-4 w-4" />
             </span>
-            <span className="mt-px">选择 HTML 书签</span>
+            <span className="flex h-4 items-center leading-none">选择 HTML 书签</span>
           </Button>
         </CardContent>
       </Card>

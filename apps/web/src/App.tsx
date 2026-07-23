@@ -467,10 +467,10 @@ export default function App() {
             onClick={toggle}
             className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 min-h-[2.5rem] text-sm text-text-secondary transition-colors hover:bg-white/10"
           >
-            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
+            <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </span>
-            <span className="leading-none mt-px">{theme === 'dark' ? '浅色模式' : '深色模式'}</span>
+            <span className="flex h-4 items-center leading-none">{theme === 'dark' ? '浅色模式' : '深色模式'}</span>
           </button>
         </div>
       </aside>
@@ -583,11 +583,11 @@ export default function App() {
                           <Github className="h-4 w-4" />
                         </span>
                       )}
-                      <span className="leading-none mt-px flex-1 truncate">
-                        <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline">
-                          {item.title}
-                        </a>
-                      </span>
+                      <span className="flex h-4 flex-1 items-center leading-none truncate">
+                  <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+                    {item.title}
+                  </a>
+                </span>
                       <span className="text-xs text-text-secondary">{item.githubLanguage ?? 'Unknown'}</span>
                     </CardContent>
                   </Card>
@@ -621,8 +621,8 @@ function SidebarButton({
           : 'text-text-secondary hover:bg-white/10 hover:text-text-primary'
       }`}
     >
-      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{icon}</span>
-      <span className="truncate leading-none mt-px">{children}</span>
+      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">{icon}</span>
+      <span className="flex h-4 items-center leading-none truncate">{children}</span>
     </button>
   );
 }

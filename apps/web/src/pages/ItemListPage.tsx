@@ -84,20 +84,20 @@ export default function ItemListPage({
               <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
                 <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
               </span>
-              <span className="mt-px">{isSyncing ? '同步中...' : '同步 Stars'}</span>
+              <span className="flex h-4 items-center leading-none">{isSyncing ? '同步中...' : '同步 Stars'}</span>
             </Button>
           )}
           <Button variant="secondary" size="sm" onClick={onGistSync} disabled={isGistSyncing || !githubToken} className="gap-1.5">
             <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <RefreshCw className={`h-4 w-4 ${isGistSyncing ? 'animate-spin' : ''}`} />
             </span>
-            <span className="mt-px">{isGistSyncing ? '同步中...' : '同步 Gist'}</span>
+            <span className="flex h-4 items-center leading-none">{isGistSyncing ? '同步中...' : '同步 Gist'}</span>
           </Button>
           <Button size="sm" onClick={onAddItem} className="gap-1.5">
             <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <Plus className="h-4 w-4" />
             </span>
-            <span className="mt-px">添加</span>
+            <span className="flex h-4 items-center leading-none">添加</span>
           </Button>
         </div>
       </header>
@@ -120,7 +120,7 @@ export default function ItemListPage({
                         <Github className="h-4 w-4" />
                       </span>
                     )}
-                    <span className="leading-none mt-px flex-1 truncate">
+                    <span className="flex h-4 flex-1 items-center leading-none truncate">
                       <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">
                         {item.title}
                       </a>
@@ -144,20 +144,20 @@ export default function ItemListPage({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="gap-1"
+                      className="gap-1.5"
                       onClick={() => onGenerateItemTags(item)}
                       disabled={!aiKey}
                     >
-                      <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
-                        <Sparkles className="h-3 w-3" />
+                      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                        <Sparkles className="h-4 w-4" />
                       </span>
-                      <span className="mt-px">标签</span>
+                      <span className="flex h-4 items-center leading-none">标签</span>
                     </Button>
-                    <Button variant="ghost" size="sm" className="gap-1" onClick={() => onShowSimilar(item)}>
-                      <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
-                        <Brain className="h-3 w-3" />
+                    <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => onShowSimilar(item)}>
+                      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                        <Brain className="h-4 w-4" />
                       </span>
-                      <span className="mt-px">相似</span>
+                      <span className="flex h-4 items-center leading-none">相似</span>
                     </Button>
                   </div>
                 </CardContent>

@@ -141,17 +141,17 @@ export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar 
                 ))}
               </div>
               <div className="flex gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => onGenerateItemTags(item)} disabled={!aiKey} className="gap-1">
-                  <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
-                    <Sparkles className="h-3 w-3" />
+                <Button variant="ghost" size="sm" onClick={() => onGenerateItemTags(item)} disabled={!aiKey} className="gap-1.5">
+                  <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <Sparkles className="h-4 w-4" />
                   </span>
-                  <span className="mt-px">标签</span>
+                  <span className="flex h-4 items-center leading-none">标签</span>
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => onShowSimilar(item)} className="gap-1">
-                  <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
-                    <Brain className="h-3 w-3" />
+                <Button variant="ghost" size="sm" onClick={() => onShowSimilar(item)} className="gap-1.5">
+                  <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <Brain className="h-4 w-4" />
                   </span>
-                  <span className="mt-px">相似</span>
+                  <span className="flex h-4 items-center leading-none">相似</span>
                 </Button>
               </div>
             </CardContent>

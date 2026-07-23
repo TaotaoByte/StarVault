@@ -41,7 +41,7 @@ export default function ProfilePage({ items, aiKey, githubToken }: ProfilePagePr
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center"><Star className="h-5 w-5" /></span>
-              <span className="leading-none">高星仓库 Top 10</span>
+              <span className="flex h-5 items-center leading-none">高星仓库 Top 10</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -64,7 +64,7 @@ export default function ProfilePage({ items, aiKey, githubToken }: ProfilePagePr
               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
                 <Sparkles className="h-5 w-5" />
               </span>
-              <span className="leading-none mt-px">功能状态</span>
+              <span className="flex h-5 items-center leading-none">功能状态</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
