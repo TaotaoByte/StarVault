@@ -1,0 +1,10 @@
+{
+  "name": "@starvault/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "StarVault 浏览器扩展：一键收藏当前页面",
+  "scripts": {
+    "build": "echo 'No build step required for vanilla extension'",
+    "lint": "echo 'No linter configured'"
+  }
+}

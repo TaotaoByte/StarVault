@@ -21,11 +21,13 @@ import {
   type Item,
 } from '@starvault/core';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge, useTheme } from '@starvault/ui';
-import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2 } from 'lucide-react';
+import { Github, Moon, Search, Sun, Plus, RefreshCw, Brain, Tags, Sparkles, X, Wand2, Wrench, ArrowLeftRight } from 'lucide-react';
 import { TagNetworkChart } from './components/TagNetworkChart.js';
 import pLimit from 'p-limit';
 import { useAppStore } from './stores/appStore.js';
 import { loadDb, saveDb } from './lib/idb.js';
+import ToolsPage from './pages/ToolsPage.js';
+import ImportExportPage from './pages/ImportExportPage.js';
 
 export default function App() {
   const { theme, toggle } = useTheme();
@@ -42,6 +44,7 @@ export default function App() {
   const [similarItems, setSimilarItems] = useState<Item[]>([]);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [isTagging, setIsTagging] = useState(false);
+  const [page, setPage] = useState<'home' | 'tools' | 'import-export'>('home');
 
   useEffect(() => {
     async function init() {
@@ -54,6 +57,7 @@ export default function App() {
         store.setDb(adapter);
         loadItems(adapter);
         setMessage('数据库已就绪');
+        handleUrlAdd(adapter);
       } catch (err) {
         setMessage(`初始化失败: ${(err as Error).message}`);
       }
@@ -61,6 +65,54 @@ export default function App() {
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleUrlAdd = (adapter = store.db) => {
+    if (!adapter) return;
+    const params = new URLSearchParams(window.location.search);
+    const addUrl = params.get('addUrl');
+    const addTitle = params.get('addTitle');
+    if (!addUrl) return;
+
+    const repo = new Repository(adapter);
+    const existing = repo.getItems().find(i => i.sourceUrl === addUrl);
+    if (existing) {
+      setMessage(`该页面已存在: ${existing.title}`);
+      return;
+    }
+
+    const item: Item = {
+      id: crypto.randomUUID(),
+      type: 'website',
+      sourceUrl: addUrl,
+      title: addTitle || addUrl,
+      description: null,
+      githubOwner: null,
+      githubRepo: null,
+      githubStars: 0,
+      githubForks: 0,
+      githubLanguage: null,
+      githubTopics: [],
+      readmeContent: null,
+      readmeSummary: null,
+      lastSyncAt: null,
+      iconUrl: null,
+      screenshotUrls: [],
+      notes: params.get('addNotes') ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+      userCreated: true,
+      isArchived: false,
+    };
+    repo.insertItem(item);
+    loadItems(adapter);
+    setMessage(`已添加收藏: ${item.title}`);
+
+    params.delete('addUrl');
+    params.delete('addTitle');
+    params.delete('addNotes');
+    const newSearch = params.toString();
+    window.history.replaceState({}, '', newSearch ? `?${newSearch}` : window.location.pathname);
+  };
 
   useEffect(() => {
     if (!store.db) return;
@@ -412,6 +464,34 @@ export default function App() {
           </Button>
         </div>
 
+        <div className="space-y-2">
+          <label className="text-xs text-text-tertiary">页面</label>
+          <Button
+            variant={page === 'home' ? 'primary' : 'secondary'}
+            className="w-full gap-2 justify-start"
+            onClick={() => setPage('home')}
+          >
+            <Github className="h-4 w-4" />
+            收藏库
+          </Button>
+          <Button
+            variant={page === 'tools' ? 'primary' : 'secondary'}
+            className="w-full gap-2 justify-start"
+            onClick={() => setPage('tools')}
+          >
+            <Wrench className="h-4 w-4" />
+            工具箱
+          </Button>
+          <Button
+            variant={page === 'import-export' ? 'primary' : 'secondary'}
+            className="w-full gap-2 justify-start"
+            onClick={() => setPage('import-export')}
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            导入导出
+          </Button>
+        </div>
+
         <div className="mt-auto">
           <Button variant="ghost" className="w-full gap-2" onClick={toggle}>
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -420,85 +500,99 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col">
-        <header className="border-b border-border p-4 flex items-center gap-4 flex-wrap">
-          <div className="relative flex-1 max-w-xl min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
-            <Input
-              className="pl-9"
-              placeholder="搜索项目、标签、描述..."
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            {(['hybrid', 'keyword', 'semantic'] as const).map(mode => (
-              <Button
-                key={mode}
-                variant={searchMode === mode ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setSearchMode(mode)}
-              >
-                {mode === 'hybrid' && '混合'}
-                {mode === 'keyword' && '关键词'}
-                {mode === 'semantic' && '语义'}
-              </Button>
-            ))}
-          </div>
-          <span className="text-sm text-text-secondary ml-auto">{store.items.length} 个项目</span>
-        </header>
-
-        <div className="p-4 text-sm text-text-secondary">{message}</div>
-
-        <div className="flex-1 p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 content-start">
-          {results.map(item => (
-            <Card key={item.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {item.type === 'github' && <Github className="h-4 w-4" />}
-                  <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">
-                    {item.title}
-                  </a>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 space-y-2">
-                <p className="text-sm text-text-secondary line-clamp-3">
-                  {item.readmeSummary || item.description || '暂无描述'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
-                  {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
-                  {item.tags?.map(tag => (
-                    <Badge key={tag} color="#8b5cf6">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2 pt-2">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {page === 'home' && (
+          <>
+            <header className="border-b border-border p-4 flex items-center gap-4 flex-wrap">
+              <div className="relative flex-1 max-w-xl min-w-[240px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+                <Input
+                  className="pl-9"
+                  placeholder="搜索项目、标签、描述..."
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                {(['hybrid', 'keyword', 'semantic'] as const).map(mode => (
                   <Button
-                    variant="ghost"
+                    key={mode}
+                    variant={searchMode === mode ? 'primary' : 'secondary'}
                     size="sm"
-                    className="gap-1"
-                    onClick={() => handleGenerateItemTags(item)}
-                    disabled={!aiKey}
+                    onClick={() => setSearchMode(mode)}
                   >
-                    <Sparkles className="h-3 w-3" />
-                    标签
+                    {mode === 'hybrid' && '混合'}
+                    {mode === 'keyword' && '关键词'}
+                    {mode === 'semantic' && '语义'}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => handleShowSimilar(item)}
-                  >
-                    <Brain className="h-3 w-3" />
-                    相似
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                ))}
+              </div>
+              <span className="text-sm text-text-secondary ml-auto">{store.items.length} 个项目</span>
+            </header>
+
+            <div className="p-4 text-sm text-text-secondary">{message}</div>
+
+            <div className="flex-1 p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 content-start overflow-auto">
+              {results.map(item => (
+                <Card key={item.id} className="flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      {item.type === 'github' && <Github className="h-4 w-4" />}
+                      <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                        {item.title}
+                      </a>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 space-y-2">
+                    <p className="text-sm text-text-secondary line-clamp-3">
+                      {item.readmeSummary || item.description || '暂无描述'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
+                      {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
+                      {item.tags?.map(tag => (
+                        <Badge key={tag} color="#8b5cf6">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => handleGenerateItemTags(item)}
+                        disabled={!aiKey}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        标签
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => handleShowSimilar(item)}
+                      >
+                        <Brain className="h-3 w-3" />
+                        相似
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+        {page === 'tools' && (
+          <div className="flex-1 p-4 overflow-hidden">
+            <ToolsPage />
+          </div>
+        )}
+        {page === 'import-export' && (
+          <div className="flex-1 p-4 overflow-auto">
+            <ImportExportPage onImported={() => loadItems()} />
+          </div>
+        )}
       </main>
 
       {showTagNetwork && (
