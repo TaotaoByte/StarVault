@@ -3,7 +3,6 @@ import {
   GitHubApi,
   githubRepoToItem,
   now,
-  OpenAiProvider,
   parseTagSuggestions,
   Repository,
   SqlJsAdapter,
@@ -16,6 +15,7 @@ import {
   findSimilarItems,
   migrate,
   type Item,
+  type AiProviderConfig,
 } from '@starvault/core';
 import { Button, Card, CardContent, useTheme } from '@starvault/ui';
 import {
@@ -48,13 +48,13 @@ import ImportExportPage from './pages/ImportExportPage.js';
 import StatsPage from './pages/StatsPage.js';
 import SettingsPage from './pages/SettingsPage.js';
 import ProfilePage from './pages/ProfilePage.js';
+import ItemEditDialog from './components/ItemEditDialog.js';
 
 type Page =
   | 'dashboard'
   | 'repositories'
   | 'websites'
   | 'software'
-  | 'tools-list'
   | 'tag-network'
   | 'ai-search'
   | 'toolbox'
@@ -69,12 +69,18 @@ export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [message, setMessage] = useState('');
   const [aiKey, setAiKey] = useState(localStorage.getItem('sv-ai-key') ?? '');
+  const [aiProvider, setAiProvider] = useState<AiProviderConfig['provider']>(
+    (localStorage.getItem('sv-ai-provider') as AiProviderConfig['provider']) ?? 'openai'
+  );
+  const [aiBaseUrl, setAiBaseUrl] = useState(localStorage.getItem('sv-ai-baseurl') ?? '');
+  const [aiModel, setAiModel] = useState(localStorage.getItem('sv-ai-model') ?? '');
   const [gistId, setGistId] = useState(localStorage.getItem('sv-gist-id') ?? '');
   const [isGistSyncing, setIsGistSyncing] = useState(false);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [isTagging, setIsTagging] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [similarItems, setSimilarItems] = useState<Item[]>([]);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -86,6 +92,9 @@ export default function App() {
         });
         await migrate(adapter);
         store.setDb(adapter);
+        if (import.meta.env.DEV) {
+          (window as unknown as Record<string, unknown>).__sv_db = adapter;
+        }
         loadItems(adapter);
         setMessage('数据库已就绪');
         handleUrlAdd(adapter);
@@ -198,7 +207,7 @@ export default function App() {
 
             if (readme && aiKey) {
               try {
-                const ai = new OpenAiProvider({ provider: 'openai', apiKey: aiKey });
+                const ai = createAiProvider(getAiConfig());
                 const summary = await ai.chatCompletion(
                   SUMMARY_PROMPT.replace('{readme_content}', truncateReadme(readme))
                 );
@@ -255,14 +264,14 @@ export default function App() {
 
   const handleGenerateEmbeddings = async () => {
     if (!store.db || !aiKey) {
-      setMessage('请先配置 OpenAI Key');
+      setMessage('请先配置 AI Key');
       setPage('settings');
       return;
     }
     setIsEmbedding(true);
     setMessage('正在生成向量 Embedding...');
     try {
-      const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+      const ai = createAiProvider(getAiConfig());
       const repo = new Repository(store.db);
       const items = repo.getItems();
       const limit = pLimit(5);
@@ -295,14 +304,14 @@ export default function App() {
 
   const handleGenerateTags = async () => {
     if (!store.db || !aiKey) {
-      setMessage('请先配置 OpenAI Key');
+      setMessage('请先配置 AI Key');
       setPage('settings');
       return;
     }
     setIsTagging(true);
     setMessage('正在生成 AI 标签...');
     try {
-      const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+      const ai = createAiProvider(getAiConfig());
       const repo = new Repository(store.db);
       const items = repo.getItems().filter(item => repo.getItemTags(item.id).length === 0);
       const limit = pLimit(5);
@@ -311,12 +320,12 @@ export default function App() {
           limit(async () => {
             const response = await ai.chatCompletion(buildTagPrompt(item));
             const suggestions = parseTagSuggestions(response);
-            enrichAndInsert(repo, item, suggestions);
+            enrichAndInsert(repo, item, suggestions, true);
           })
         )
       );
       loadItems();
-      setMessage(`已为 ${items.length} 个项目生成标签`);
+      setMessage(`已为 ${items.length} 个项目尝试生成标签`);
     } catch (err) {
       setMessage(`生成标签失败: ${(err as Error).message}`);
     } finally {
@@ -329,7 +338,7 @@ export default function App() {
     setSelectedItem(item);
     setSimilarItems([]);
     try {
-      const ai = aiKey ? createAiProvider({ provider: 'openai', apiKey: aiKey }) : null;
+      const ai = aiKey ? createAiProvider(getAiConfig()) : null;
       const results = await findSimilarItems(store.db, ai, item, { limit: 10 });
       setSimilarItems(results.map(r => r.item));
     } catch (err) {
@@ -339,24 +348,29 @@ export default function App() {
 
   const handleGenerateItemTags = async (item: Item) => {
     if (!store.db || !aiKey) {
-      setMessage('请先配置 OpenAI Key');
+      setMessage('请先配置 AI Key');
       setPage('settings');
       return;
     }
+    setMessage(`正在为 ${item.title} 生成标签...`);
     try {
-      const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+      const ai = createAiProvider(getAiConfig());
       const repo = new Repository(store.db);
       const response = await ai.chatCompletion(buildTagPrompt(item));
       const suggestions = parseTagSuggestions(response);
-      enrichAndInsert(repo, item, suggestions);
+      if (suggestions.length === 0) {
+        setMessage(`AI 未返回有效标签，请检查模型是否支持当前提示词格式`);
+        return;
+      }
+      enrichAndInsert(repo, item, suggestions, true);
       loadItems();
-      setMessage(`已为 ${item.title} 生成标签`);
+      setMessage(`已为 ${item.title} 生成 ${suggestions.length} 个标签`);
     } catch (err) {
       setMessage(`标签生成失败: ${(err as Error).message}`);
     }
   };
 
-  const addManualItem = () => {
+  const addManualItem = (type: Item['type'] = 'website') => {
     if (!store.db) return;
     const title = prompt('输入标题');
     const url = prompt('输入 URL');
@@ -364,7 +378,7 @@ export default function App() {
     const repo = new Repository(store.db);
     const item: Item = {
       id: crypto.randomUUID(),
-      type: 'website',
+      type,
       sourceUrl: url,
       title,
       description: '',
@@ -389,6 +403,56 @@ export default function App() {
     loadItems();
   };
 
+  const handleUpdateItem = (item: Item, tags: string[]) => {
+    if (!store.db) return;
+    const repo = new Repository(store.db);
+    repo.updateItem({
+      id: item.id,
+      title: item.title,
+      sourceUrl: item.sourceUrl,
+      description: item.description,
+      notes: item.notes,
+      updatedAt: item.updatedAt,
+    });
+    repo.setItemTags(item.id, tags);
+    loadItems();
+    setEditingItem(null);
+    setMessage('已保存');
+  };
+
+  const getAiConfig = (): AiProviderConfig => {
+    let baseUrl = aiBaseUrl;
+    let model = aiModel;
+    if (!baseUrl) {
+      if (aiProvider === 'deepseek') baseUrl = 'https://api.deepseek.com';
+      else if (aiProvider === 'openai') baseUrl = 'https://api.openai.com/v1';
+      else if (aiProvider === 'anthropic') baseUrl = 'https://api.anthropic.com/v1';
+      else if (aiProvider === 'kimi') baseUrl = 'https://api.moonshot.cn/v1';
+      else if (aiProvider === 'glm') baseUrl = 'https://open.bigmodel.cn/api/paas/v4';
+      else if (aiProvider === 'minimax') baseUrl = 'https://api.minimax.chat/v1';
+      else if (aiProvider === 'qwen') baseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    }
+    if (!model) {
+      if (aiProvider === 'deepseek') model = 'deepseek-v4-pro';
+      else if (aiProvider === 'openai') model = 'gpt-4o';
+      else if (aiProvider === 'anthropic') model = 'claude-3-7-sonnet-20250219';
+      else if (aiProvider === 'kimi') model = 'moonshot-v1-8k';
+      else if (aiProvider === 'glm') model = 'glm-4-flash';
+      else if (aiProvider === 'minimax') model = 'abab6.5s-chat';
+      else if (aiProvider === 'qwen') model = 'qwen-plus';
+    }
+    return { provider: aiProvider, apiKey: aiKey, baseUrl, model };
+  };
+
+  const handleDeleteItem = (item: Item) => {
+    if (!store.db) return;
+    if (!confirm(`确定要删除 "${item.title}" 吗？`)) return;
+    const repo = new Repository(store.db);
+    repo.deleteItem(item.id);
+    loadItems();
+    setMessage('已删除');
+  };
+
   const pageType = useMemo(() => {
     switch (page) {
       case 'repositories':
@@ -397,8 +461,6 @@ export default function App() {
         return 'website';
       case 'software':
         return 'software';
-      case 'tools-list':
-        return 'tool';
       default:
         return 'all';
     }
@@ -436,9 +498,6 @@ export default function App() {
             </SidebarButton>
             <SidebarButton active={page === 'software'} onClick={() => setPage('software')} icon={<Box className="h-4 w-4" />}>
               软件列表
-            </SidebarButton>
-            <SidebarButton active={page === 'tools-list'} onClick={() => setPage('tools-list')} icon={<Wrench className="h-4 w-4" />}>
-              工具列表
             </SidebarButton>
           </NavGroup>
 
@@ -508,15 +567,15 @@ export default function App() {
                 if (type === 'github') setPage('repositories');
                 else if (type === 'website') setPage('websites');
                 else if (type === 'software') setPage('software');
-                else if (type === 'tool') setPage('tools-list');
+                else if (type === 'tool') setPage('toolbox');
                 else setPage('repositories');
               }}
             />
           )}
 
-          {(page === 'repositories' || page === 'websites' || page === 'software' || page === 'tools-list') && (
+          {(page === 'repositories' || page === 'websites' || page === 'software') && (
             <ItemListPage
-              type={pageType as 'github' | 'website' | 'software' | 'tool'}
+              type={pageType as 'github' | 'website' | 'software'}
               items={store.items}
               aiKey={aiKey}
               githubToken={store.githubToken}
@@ -526,12 +585,20 @@ export default function App() {
               onGistSync={handleGistSync}
               onGenerateItemTags={handleGenerateItemTags}
               onShowSimilar={handleShowSimilar}
-              onAddItem={addManualItem}
+              onAddItem={() => addManualItem(pageType as 'github' | 'website' | 'software' | 'tool')}
+              onEditItem={setEditingItem}
+              onDeleteItem={handleDeleteItem}
             />
           )}
 
           {page === 'ai-search' && (
-            <AiSearchPage aiKey={aiKey} onGenerateItemTags={handleGenerateItemTags} onShowSimilar={handleShowSimilar} />
+            <AiSearchPage
+              aiConfig={getAiConfig()}
+              onGenerateItemTags={handleGenerateItemTags}
+              onShowSimilar={handleShowSimilar}
+              onEditItem={setEditingItem}
+              onDeleteItem={handleDeleteItem}
+            />
           )}
 
           {page === 'tag-network' && <TagNetworkPage items={store.items} />}
@@ -551,11 +618,26 @@ export default function App() {
           {page === 'settings' && (
             <SettingsPage
               aiKey={aiKey}
+              aiProvider={aiProvider}
+              aiBaseUrl={aiBaseUrl}
+              aiModel={aiModel}
               gistId={gistId}
               githubToken={store.githubToken}
               isSyncing={store.isSyncing}
               isGistSyncing={isGistSyncing}
               onAiKeyChange={setAiKey}
+              onAiProviderChange={value => {
+                setAiProvider(value);
+                localStorage.setItem('sv-ai-provider', value);
+              }}
+              onAiBaseUrlChange={value => {
+                setAiBaseUrl(value);
+                localStorage.setItem('sv-ai-baseurl', value);
+              }}
+              onAiModelChange={value => {
+                setAiModel(value);
+                localStorage.setItem('sv-ai-model', value);
+              }}
               onGistIdChange={setGistId}
               onSync={handleSync}
               onGistSync={handleGistSync}
@@ -603,6 +685,14 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {editingItem && (
+        <ItemEditDialog
+          item={editingItem}
+          onSave={handleUpdateItem}
+          onClose={() => setEditingItem(null)}
+        />
+      )}
     </div>
   );
 }
@@ -645,9 +735,12 @@ function NavGroup({ title, children }: { title: string; children: React.ReactNod
 function enrichAndInsert(
   repo: Repository,
   item: Item,
-  suggestions: { tag: string; confidence: number; reason: string }[]
+  suggestions: { tag: string; confidence: number; reason: string }[],
+  existing = false
 ): void {
-  repo.insertItem(item);
+  if (!existing) {
+    repo.insertItem(item);
+  }
   for (const s of suggestions) {
     let tag = repo.getTagByName(s.tag);
     if (!tag) {

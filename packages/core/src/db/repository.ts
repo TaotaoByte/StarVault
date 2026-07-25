@@ -1,5 +1,5 @@
 import type { Collection, Embedding, Item, Tag } from '../types/index.js';
-import { now, stringifyJson } from '../utils/index.js';
+import { generateId, now, stringifyJson } from '../utils/index.js';
 import type { DatabaseAdapter } from './adapter.js';
 
 export class Repository {
@@ -104,7 +104,8 @@ export class Repository {
               screenshot_urls as screenshotUrls, notes,
               created_at as createdAt, updated_at as updatedAt,
               user_created as userCreated, is_archived as isArchived
-       FROM items WHERE github_owner = ? AND github_repo = ?`,
+       FROM items WHERE LOWER(github_owner) = LOWER(?) AND LOWER(github_repo) = LOWER(?)
+       LIMIT 1`,
       [owner, repo]
     );
     return row ? this.toItem(row) : undefined;
@@ -153,6 +154,43 @@ export class Repository {
       [itemId]
     );
     return rows.map(r => r.name);
+  }
+
+  removeTagFromItem(itemId: string, tagId: string): void {
+    this.adapter.exec('DELETE FROM item_tags WHERE item_id = ? AND tag_id = ?', [itemId, tagId]);
+  }
+
+  clearItemTags(itemId: string): void {
+    this.adapter.exec('DELETE FROM item_tags WHERE item_id = ?', [itemId]);
+  }
+
+  deleteItem(itemId: string): void {
+    this.adapter.exec('DELETE FROM item_tags WHERE item_id = ?', [itemId]);
+    this.adapter.exec('DELETE FROM item_collections WHERE item_id = ?', [itemId]);
+    this.adapter.exec('DELETE FROM embeddings WHERE item_id = ?', [itemId]);
+    this.adapter.exec('DELETE FROM items WHERE id = ?', [itemId]);
+  }
+
+  setItemTags(itemId: string, tagNames: string[]): void {
+    this.clearItemTags(itemId);
+    for (const name of tagNames) {
+      const trimmed = name.trim();
+      if (!trimmed) continue;
+      let tag = this.getTagByName(trimmed);
+      if (!tag) {
+        tag = {
+          id: generateId(),
+          name: trimmed,
+          color: '#8b5cf6',
+          description: null,
+          parentId: null,
+          isAiGenerated: false,
+          createdAt: now(),
+        };
+        this.createTag(tag);
+      }
+      this.addTagToItem(itemId, tag.id);
+    }
   }
 
   // Collections

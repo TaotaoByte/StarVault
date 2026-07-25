@@ -23,7 +23,7 @@ export class OpenAiProvider implements AiProvider {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
-        model: this.config.model ?? 'gpt-4o-mini',
+        model: this.config.model ?? 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
       }),
@@ -41,6 +41,9 @@ export class OpenAiProvider implements AiProvider {
   }
 
   async embed(text: string): Promise<number[]> {
+    if (this.config.provider === 'deepseek') {
+      throw new Error('DeepSeek 暂不提供 Embedding API，请切换为 OpenAI 或自定义 OpenAI 兼容接口');
+    }
     const res = await fetch(`${this.baseUrl}/embeddings`, {
       method: 'POST',
       headers: this.headers,

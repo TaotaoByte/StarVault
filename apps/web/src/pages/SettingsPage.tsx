@@ -1,16 +1,96 @@
 import { useState } from 'react';
 import { exportToJson } from '@starvault/core';
+import type { AiProviderConfig } from '@starvault/core';
+
 import { Button, Card, CardContent, CardHeader, CardTitle, useTheme } from '@starvault/ui';
 import { useAppStore } from '../stores/appStore.js';
 import { Github, Key, Cloud, Moon, Sun, Trash2, Download, Shield, Info, RefreshCw } from 'lucide-react';
 
+const RECOMMENDED_MODELS: Record<AiProviderConfig['provider'], { value: string; label: string }[]> = {
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4.1', label: 'GPT-4.1' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+    { value: 'o3', label: 'o3' },
+    { value: 'o4-mini', label: 'o4-mini' },
+  ],
+  deepseek: [
+    { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+    { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+    { value: 'deepseek-chat', label: 'DeepSeek Chat (旧版)' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
+  ],
+  anthropic: [
+    { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
+    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+  ],
+  kimi: [
+    { value: 'moonshot-v1-8k', label: 'Moonshot V1 8K' },
+    { value: 'moonshot-v1-32k', label: 'Moonshot V1 32K' },
+    { value: 'moonshot-v1-128k', label: 'Moonshot V1 128K' },
+    { value: 'moonshot-v1-auto', label: 'Moonshot V1 Auto' },
+  ],
+  glm: [
+    { value: 'glm-4-flash', label: 'GLM-4 Flash' },
+    { value: 'glm-4-air', label: 'GLM-4 Air' },
+    { value: 'glm-4-plus', label: 'GLM-4 Plus' },
+    { value: 'glm-4', label: 'GLM-4' },
+  ],
+  minimax: [
+    { value: 'abab6.5s-chat', label: 'abab6.5s' },
+    { value: 'abab6.5-chat', label: 'abab6.5' },
+    { value: 'MiniMax-Text-01', label: 'MiniMax Text-01' },
+  ],
+  qwen: [
+    { value: 'qwen-plus', label: 'Qwen Plus' },
+    { value: 'qwen-turbo', label: 'Qwen Turbo' },
+    { value: 'qwen-max', label: 'Qwen Max' },
+    { value: 'qwen-coder-plus', label: 'Qwen Coder Plus' },
+  ],
+  mimo: [],
+  custom: [],
+};
+
+const DEFAULT_BASE_URLS: Record<AiProviderConfig['provider'], string | undefined> = {
+  openai: 'https://api.openai.com/v1',
+  deepseek: 'https://api.deepseek.com',
+  anthropic: 'https://api.anthropic.com/v1',
+  kimi: 'https://api.moonshot.cn/v1',
+  glm: 'https://open.bigmodel.cn/api/paas/v4',
+  minimax: 'https://api.minimax.chat/v1',
+  qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  mimo: undefined,
+  custom: undefined,
+};
+
+const DEFAULT_MODELS: Record<AiProviderConfig['provider'], string | undefined> = {
+  openai: 'gpt-4o',
+  deepseek: 'deepseek-v4-pro',
+  anthropic: 'claude-3-7-sonnet-20250219',
+  kimi: 'moonshot-v1-8k',
+  glm: 'glm-4-flash',
+  minimax: 'abab6.5s-chat',
+  qwen: 'qwen-plus',
+  mimo: undefined,
+  custom: undefined,
+};
+
 interface SettingsPageProps {
   aiKey?: string;
+  aiProvider?: AiProviderConfig['provider'];
+  aiBaseUrl?: string;
+  aiModel?: string;
   gistId?: string;
   githubToken?: string;
   isSyncing?: boolean;
   isGistSyncing?: boolean;
   onAiKeyChange?: (value: string) => void;
+  onAiProviderChange?: (value: AiProviderConfig['provider']) => void;
+  onAiBaseUrlChange?: (value: string) => void;
+  onAiModelChange?: (value: string) => void;
   onGistIdChange?: (value: string) => void;
   onSync?: () => void;
   onGistSync?: () => void;
@@ -18,11 +98,17 @@ interface SettingsPageProps {
 
 export default function SettingsPage({
   aiKey: propAiKey,
+  aiProvider: propAiProvider,
+  aiBaseUrl: propAiBaseUrl,
+  aiModel: propAiModel,
   gistId: propGistId,
   githubToken: propGithubToken,
   isSyncing,
   isGistSyncing,
   onAiKeyChange,
+  onAiProviderChange,
+  onAiBaseUrlChange,
+  onAiModelChange,
   onGistIdChange,
   onSync,
   onGistSync,
@@ -30,8 +116,16 @@ export default function SettingsPage({
   const store = useAppStore();
   const { theme, toggle } = useTheme();
   const [localAiKey, setLocalAiKey] = useState(localStorage.getItem('sv-ai-key') ?? '');
+  const [localAiProvider, setLocalAiProvider] = useState<AiProviderConfig['provider']>(
+    (localStorage.getItem('sv-ai-provider') as AiProviderConfig['provider']) ?? 'openai'
+  );
+  const [localAiBaseUrl, setLocalAiBaseUrl] = useState(localStorage.getItem('sv-ai-baseurl') ?? '');
+  const [localAiModel, setLocalAiModel] = useState(localStorage.getItem('sv-ai-model') ?? '');
   const [localGistId, setLocalGistId] = useState(localStorage.getItem('sv-gist-id') ?? '');
   const aiKey = propAiKey ?? localAiKey;
+  const aiProvider = propAiProvider ?? localAiProvider;
+  const aiBaseUrl = propAiBaseUrl ?? localAiBaseUrl;
+  const aiModel = propAiModel ?? localAiModel;
   const gistId = propGistId ?? localGistId;
   const githubToken = propGithubToken ?? store.githubToken;
   const [message, setMessage] = useState('');
@@ -40,7 +134,35 @@ export default function SettingsPage({
     setLocalAiKey(value);
     localStorage.setItem('sv-ai-key', value);
     onAiKeyChange?.(value);
-    setMessage('OpenAI Key 已保存');
+    setMessage('AI Key 已保存');
+  };
+
+  const saveAiProvider = (value: AiProviderConfig['provider']) => {
+    setLocalAiProvider(value);
+    localStorage.setItem('sv-ai-provider', value);
+    onAiProviderChange?.(value);
+    // 切换服务商时，如果当前模型不在新服务商推荐列表中，则清空以使用默认模型
+    const validModels = new Set(RECOMMENDED_MODELS[value].map(m => m.value));
+    if (aiModel && value !== 'custom' && value !== 'mimo' && !validModels.has(aiModel)) {
+      setLocalAiModel('');
+      localStorage.removeItem('sv-ai-model');
+      onAiModelChange?.('');
+    }
+    setMessage('AI 服务商已保存');
+  };
+
+  const saveAiBaseUrl = (value: string) => {
+    setLocalAiBaseUrl(value);
+    localStorage.setItem('sv-ai-baseurl', value);
+    onAiBaseUrlChange?.(value);
+    setMessage('AI 接口地址已保存');
+  };
+
+  const saveAiModel = (value: string) => {
+    setLocalAiModel(value);
+    localStorage.setItem('sv-ai-model', value);
+    onAiModelChange?.(value);
+    setMessage('AI 模型已保存');
   };
 
   const saveGistId = (value: string) => {
@@ -70,6 +192,9 @@ export default function SettingsPage({
     if (!confirm('确定要清除本地所有数据吗？此操作不可恢复。')) return;
     localStorage.removeItem('sv-db');
     localStorage.removeItem('sv-ai-key');
+    localStorage.removeItem('sv-ai-provider');
+    localStorage.removeItem('sv-ai-baseurl');
+    localStorage.removeItem('sv-ai-model');
     localStorage.removeItem('sv-gist-id');
     setMessage('本地数据已清除，刷新页面后生效');
   };
@@ -154,14 +279,64 @@ export default function SettingsPage({
             用于生成项目摘要、智能标签和向量 Embedding。不填则禁用 AI 功能。
           </p>
           <div className="space-y-2">
-            <label className="text-xs text-text-tertiary">OpenAI API Key</label>
+            <label className="text-xs text-text-tertiary">AI 服务商</label>
+            <select
+              value={aiProvider}
+              onChange={e => saveAiProvider(e.target.value as AiProviderConfig['provider'])}
+              className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="openai">OpenAI</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="kimi">Kimi（月之暗面）</option>
+              <option value="glm">GLM（智谱）</option>
+              <option value="minimax">MiniMax</option>
+              <option value="qwen">Qwen（通义千问）</option>
+              <option value="mimo">Mimo（自定义接口）</option>
+              <option value="custom">自定义 OpenAI 兼容接口</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-text-tertiary">API Key</label>
             <input
               type="password"
               value={aiKey}
               onChange={e => saveAiKey(e.target.value)}
-              placeholder="sk-xxx"
+              placeholder={aiProvider === 'deepseek' ? 'sk-...' : 'sk-xxx'}
               className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-text-tertiary">
+              接口地址
+              <span className="ml-1 text-text-tertiary/70">（留空使用默认地址）</span>
+            </label>
+            <input
+              type="text"
+              value={aiBaseUrl}
+              onChange={e => saveAiBaseUrl(e.target.value)}
+              placeholder={DEFAULT_BASE_URLS[aiProvider] ?? 'https://api.example.com/v1'}
+              className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-text-tertiary">
+              模型
+              <span className="ml-1 text-text-tertiary/70">（留空使用默认模型，也可输入自定义模型名）</span>
+            </label>
+            <input
+              type="text"
+              list="ai-model-options"
+              value={aiModel}
+              onChange={e => saveAiModel(e.target.value)}
+              placeholder={DEFAULT_MODELS[aiProvider] ?? '自定义模型名'}
+              className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <datalist id="ai-model-options">
+              {RECOMMENDED_MODELS[aiProvider].map(m => (
+                <option key={m.value} value={m.value} label={m.label} />
+              ))}
+            </datalist>
           </div>
         </CardContent>
       </Card>

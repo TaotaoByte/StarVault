@@ -1,17 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge } from '@starvault/ui';
-import { Brain, Search, Sparkles } from 'lucide-react';
-import type { Item } from '@starvault/core';
+import { Brain, Search, Sparkles, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import type { Item, AiProviderConfig } from '@starvault/core';
 import { semanticSearch, hybridSearch, createAiProvider, findSimilarItems } from '@starvault/core';
 import { useAppStore } from '../stores/appStore.js';
 
 interface AiSearchPageProps {
-  aiKey: string;
+  aiConfig: AiProviderConfig;
   onGenerateItemTags: (item: Item) => void;
   onShowSimilar: (item: Item) => void;
+  onEditItem: (item: Item) => void;
+  onDeleteItem: (item: Item) => void;
 }
 
-export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar }: AiSearchPageProps) {
+export default function AiSearchPage({ aiConfig, onGenerateItemTags, onShowSimilar, onEditItem, onDeleteItem }: AiSearchPageProps) {
   const store = useAppStore();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Item[]>([]);
@@ -19,6 +21,35 @@ export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar 
   const [mode, setMode] = useState<'semantic' | 'similar'>('semantic');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [message, setMessage] = useState('');
+  const [sortBy, setSortBy] = useState<
+    'relevance' | 'created-desc' | 'created-asc' | 'updated-desc' | 'updated-asc' | 'title-asc' | 'title-desc' | 'stars-desc' | 'stars-asc'
+  >('relevance');
+
+  const sortedResults = useMemo(() => {
+    if (sortBy === 'relevance') return results;
+    return [...results].sort((a, b) => {
+      switch (sortBy) {
+        case 'created-desc':
+          return b.createdAt.localeCompare(a.createdAt);
+        case 'created-asc':
+          return a.createdAt.localeCompare(b.createdAt);
+        case 'updated-desc':
+          return b.updatedAt.localeCompare(a.updatedAt);
+        case 'updated-asc':
+          return a.updatedAt.localeCompare(b.updatedAt);
+        case 'title-asc':
+          return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+        case 'title-desc':
+          return b.title.localeCompare(a.title, undefined, { sensitivity: 'base' });
+        case 'stars-desc':
+          return (b.githubStars ?? 0) - (a.githubStars ?? 0);
+        case 'stars-asc':
+          return (a.githubStars ?? 0) - (b.githubStars ?? 0);
+        default:
+          return 0;
+      }
+    });
+  }, [results, sortBy]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -32,14 +63,14 @@ export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar 
 
   const runSearch = async (q: string) => {
     if (!store.db) return;
-    if (!aiKey) {
-      setMessage('请先配置 OpenAI Key');
+    if (!aiConfig.apiKey) {
+      setMessage('请先配置 AI Key');
       return;
     }
     setLoading(true);
     setMessage('');
     try {
-      const ai = createAiProvider({ provider: 'openai', apiKey: aiKey });
+      const ai = createAiProvider(aiConfig);
       let searchResults;
       if (mode === 'similar' && selectedItem) {
         searchResults = await findSimilarItems(store.db, ai, selectedItem, { limit: 20 });
@@ -78,7 +109,7 @@ export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar 
             <Brain className={`absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-accent ${loading ? 'animate-pulse' : ''}`} />
           </div>
 
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-2 flex-wrap">
             {(['semantic', 'similar'] as const).map(m => (
               <button
                 key={m}
@@ -90,6 +121,28 @@ export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar 
                 {m === 'semantic' ? '语义搜索' : '以项目找相似'}
               </button>
             ))}
+          </div>
+
+          <div className="flex items-center justify-center gap-2 text-sm text-text-secondary">
+            <span className="flex items-center gap-1">
+              <ArrowUpDown className="h-4 w-4" />
+              排序
+            </span>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as typeof sortBy)}
+              className="bg-bg-primary border border-border rounded-md px-2 py-1 text-text-primary"
+            >
+              <option value="relevance">相关度</option>
+              <option value="created-desc">添加时间（最新）</option>
+              <option value="created-asc">添加时间（最早）</option>
+              <option value="updated-desc">更新时间（最新）</option>
+              <option value="updated-asc">更新时间（最早）</option>
+              <option value="title-asc">名称 A-Z</option>
+              <option value="title-desc">名称 Z-A</option>
+              <option value="stars-desc">Stars 数（高→低）</option>
+              <option value="stars-asc">Stars 数（低→高）</option>
+            </select>
           </div>
 
           {mode === 'similar' && (
@@ -118,34 +171,43 @@ export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar 
       {message && <p className="text-sm text-danger text-center">{message}</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {results.map(item => (
-          <Card key={item.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-base">
+        {sortedResults.map(item => (
+          <Card key={item.id} className="flex flex-col h-[220px] hover:shadow-lg transition-shadow overflow-hidden">
+            <CardHeader className="flex-shrink-0">
+              <CardTitle className="text-base truncate">
                 <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">
                   {item.title}
                 </a>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm text-text-secondary line-clamp-3">
+            <CardContent className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
+              <p className="text-sm text-text-secondary line-clamp-2">
                 {item.readmeSummary || item.description || '暂无描述'}
               </p>
-              <div className="flex flex-wrap gap-2">
-                {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
-                {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
-                {item.tags?.map(tag => (
-                  <Badge key={tag} color="#8b5cf6">
-                    {tag}
-                  </Badge>
-                ))}
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <div className="flex flex-wrap gap-2">
+                  {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
+                  {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
+                  {item.tags?.map(tag => (
+                    <Badge key={tag} color="#8b5cf6">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => onGenerateItemTags(item)} disabled={!aiKey} className="gap-1.5">
+              <div className="flex gap-2 pt-2 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onGenerateItemTags(item)}
+                  disabled={!aiConfig.apiKey}
+                  className="gap-1.5"
+                  title={aiConfig.apiKey ? 'AI 生成标签' : '请先配置 AI Key'}
+                >
                   <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
                     <Sparkles className="h-4 w-4" />
                   </span>
-                  <span className="flex h-4 items-center leading-none">标签</span>
+                  <span className="flex h-4 items-center leading-none">AI标签</span>
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => onShowSimilar(item)} className="gap-1.5">
                   <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
@@ -153,13 +215,30 @@ export default function AiSearchPage({ aiKey, onGenerateItemTags, onShowSimilar 
                   </span>
                   <span className="flex h-4 items-center leading-none">相似</span>
                 </Button>
+                <Button variant="ghost" size="sm" onClick={() => onEditItem(item)} className="gap-1.5">
+                  <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <Pencil className="h-4 w-4" />
+                  </span>
+                  <span className="flex h-4 items-center leading-none">编辑</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteItem(item)}
+                  className="gap-1.5 text-danger hover:text-danger"
+                >
+                  <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <Trash2 className="h-4 w-4" />
+                  </span>
+                  <span className="flex h-4 items-center leading-none">删除</span>
+                </Button>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {!loading && results.length === 0 && query.trim() && !message && (
+      {!loading && sortedResults.length === 0 && query.trim() && !message && (
         <p className="text-center text-sm text-text-secondary">未找到相关项目</p>
       )}
     </div>

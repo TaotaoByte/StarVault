@@ -24,7 +24,7 @@ export class AnthropicProvider implements AiProvider {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
-        model: this.config.model ?? 'claude-3-haiku-20240307',
+        model: this.config.model ?? 'claude-3-7-sonnet-20250219',
         max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,

@@ -69,7 +69,7 @@ export default function ProfilePage({ items, aiKey, githubToken }: ProfilePagePr
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <StatusRow label="GitHub Token" active={!!githubToken} />
-            <StatusRow label="OpenAI Key" active={!!aiKey} />
+            <StatusRow label="AI Key" active={!!aiKey} />
             <StatusRow label="AI 摘要" active={summary.withReadmeSummary > 0} />
             <StatusRow label="向量 Embedding" active={summary.withEmbeddings > 0} />
           </CardContent>

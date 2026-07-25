@@ -2,11 +2,22 @@ import type { Item, TagSuggestion } from '../types/index.js';
 import { OpenAiProvider } from './openai.js';
 import { AnthropicProvider } from './anthropic.js';
 
+export type AiProviderName =
+  | 'openai'
+  | 'deepseek'
+  | 'anthropic'
+  | 'kimi'
+  | 'glm'
+  | 'minimax'
+  | 'qwen'
+  | 'mimo'
+  | 'custom';
+
 export interface AiProviderConfig {
   apiKey: string;
   baseUrl?: string;
   model?: string;
-  provider: 'openai' | 'anthropic' | 'custom';
+  provider: AiProviderName;
 }
 
 export interface AiProvider {
@@ -14,13 +25,14 @@ export interface AiProvider {
   embed(text: string): Promise<number[]>;
 }
 
-export const DEFAULT_CHAT_MODEL = 'gpt-4o-mini';
+export const DEFAULT_CHAT_MODEL = 'gpt-4o';
 export const EMBEDDING_MODEL = 'text-embedding-3-small';
 
 export function createAiProvider(config: AiProviderConfig): AiProvider {
   if (config.provider === 'anthropic') {
     return new AnthropicProvider(config);
   }
+  // DeepSeek / Kimi / GLM / MiniMax / Qwen / Mimo / custom 均使用 OpenAI 兼容接口。
   return new OpenAiProvider(config);
 }
 
@@ -55,7 +67,12 @@ README摘要：${item.readmeSummary ?? ''}
 
 export function parseTagSuggestions(response: string): TagSuggestion[] {
   try {
-    const parsed = JSON.parse(response) as { tags?: { name: string; confidence: number; reason: string }[] };
+    // 去除可能的 markdown 代码块标记（如 ```json ... ```）
+    let cleaned = response.trim();
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    const parsed = JSON.parse(cleaned) as { tags?: { name: string; confidence: number; reason: string }[] };
     return (parsed.tags ?? []).map(t => ({
       tag: t.name,
       confidence: t.confidence,

@@ -9,12 +9,66 @@ export interface SearchOptions {
   includeArchived?: boolean;
 }
 
+function hasFts5(adapter: DatabaseAdapter): boolean {
+  try {
+    const rows = adapter.query<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='items_fts'"
+    );
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function keywordSearch(
   adapter: DatabaseAdapter,
   query: string,
   options: SearchOptions = {}
 ): Promise<SearchResult[]> {
   const limit = options.limit ?? 50;
+  const like = `%${query.replace(/[%_]/g, '\\$&')}%`;
+  const archivedFilter = options.includeArchived ? '' : 'AND i.is_archived = 0';
+
+  if (hasFts5(adapter)) {
+    const rows = adapter.query<{
+      id: string;
+      type: string;
+      source_url: string;
+      title: string;
+      description: string | null;
+      github_owner: string | null;
+      github_repo: string | null;
+      github_stars: number;
+      github_forks: number;
+      github_language: string | null;
+      github_topics: string;
+      readme_content: string | null;
+      readme_summary: string | null;
+      last_sync_at: string | null;
+      icon_url: string | null;
+      screenshot_urls: string;
+      notes: string | null;
+      created_at: string;
+      updated_at: string;
+      user_created: number;
+      is_archived: number;
+    }>(
+      `SELECT i.* FROM items i
+       JOIN items_fts fts ON fts.rowid = i.id
+       WHERE items_fts MATCH ? ${archivedFilter}
+       ORDER BY rank
+       LIMIT ?`,
+      [query, limit]
+    );
+
+    return rows.map((row, index) => ({
+      item: rowToItem(row),
+      score: 1 / (60 + index + 1),
+      matchType: 'keyword',
+    }));
+  }
+
+  // Fallback for sql.js builds without FTS5 extension.
   const rows = adapter.query<{
     id: string;
     type: string;
@@ -39,11 +93,15 @@ export async function keywordSearch(
     is_archived: number;
   }>(
     `SELECT i.* FROM items i
-     JOIN items_fts fts ON fts.rowid = i.id
-     WHERE items_fts MATCH ? ${options.includeArchived ? '' : 'AND i.is_archived = 0'}
-     ORDER BY rank
+     WHERE (
+       i.title LIKE ? ESCAPE '\\' OR
+       i.description LIKE ? ESCAPE '\\' OR
+       i.readme_content LIKE ? ESCAPE '\\' OR
+       i.readme_summary LIKE ? ESCAPE '\\'
+     ) ${archivedFilter}
+     ORDER BY i.updated_at DESC
      LIMIT ?`,
-    [query, limit]
+    [like, like, like, like, limit]
   );
 
   return rows.map((row, index) => ({

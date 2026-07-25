@@ -28,7 +28,8 @@ export const MIGRATIONS: string[] = [
     user_created    INTEGER DEFAULT 0,
     is_archived     INTEGER DEFAULT 0
   );
-
+  `,
+  `
   CREATE TABLE IF NOT EXISTS tags (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL UNIQUE,
@@ -38,14 +39,16 @@ export const MIGRATIONS: string[] = [
     is_ai_generated INTEGER DEFAULT 0,
     created_at  TEXT DEFAULT CURRENT_TIMESTAMP
   );
-
+  `,
+  `
   CREATE TABLE IF NOT EXISTS item_tags (
     item_id TEXT REFERENCES items(id) ON DELETE CASCADE,
     tag_id  TEXT REFERENCES tags(id) ON DELETE CASCADE,
     confidence REAL DEFAULT 1.0,
     PRIMARY KEY (item_id, tag_id)
   );
-
+  `,
+  `
   CREATE TABLE IF NOT EXISTS collections (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
@@ -55,20 +58,23 @@ export const MIGRATIONS: string[] = [
     sort_order  INTEGER DEFAULT 0,
     created_at  TEXT DEFAULT CURRENT_TIMESTAMP
   );
-
+  `,
+  `
   CREATE TABLE IF NOT EXISTS item_collections (
     item_id       TEXT REFERENCES items(id) ON DELETE CASCADE,
     collection_id TEXT REFERENCES collections(id) ON DELETE CASCADE,
     PRIMARY KEY (item_id, collection_id)
   );
-
+  `,
+  `
   CREATE TABLE IF NOT EXISTS embeddings (
     item_id     TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
     embedding   BLOB NOT NULL,
     model       TEXT DEFAULT 'text-embedding-3-small',
     updated_at  TEXT DEFAULT CURRENT_TIMESTAMP
   );
-
+  `,
+  `
   CREATE TABLE IF NOT EXISTS sync_meta (
     id              INTEGER PRIMARY KEY CHECK (id = 1),
     last_sync_at    TEXT,
@@ -77,7 +83,8 @@ export const MIGRATIONS: string[] = [
     device_id       TEXT NOT NULL,
     schema_version  INTEGER DEFAULT 1
   );
-
+  `,
+  `
   CREATE TABLE IF NOT EXISTS change_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     table_name  TEXT NOT NULL,
@@ -89,7 +96,72 @@ export const MIGRATIONS: string[] = [
     synced      INTEGER DEFAULT 0,
     sync_retry  INTEGER DEFAULT 0
   );
+  `,
+  `
+  INSERT OR IGNORE INTO sync_meta (id, device_id, schema_version) VALUES (1, lower(hex(randomblob(16))), ${SCHEMA_VERSION});
+  `,
+  // Deduplicate GitHub items that were created with inconsistent casing or race conditions.
+  `
+  DELETE FROM item_tags WHERE item_id IN (
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY LOWER(github_owner), LOWER(github_repo)
+        ORDER BY updated_at DESC, id DESC
+      ) AS rn
+      FROM items
+      WHERE github_owner IS NOT NULL AND github_repo IS NOT NULL
+    )
+    WHERE rn > 1
+  );
+  `,
+  `
+  DELETE FROM item_collections WHERE item_id IN (
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY LOWER(github_owner), LOWER(github_repo)
+        ORDER BY updated_at DESC, id DESC
+      ) AS rn
+      FROM items
+      WHERE github_owner IS NOT NULL AND github_repo IS NOT NULL
+    )
+    WHERE rn > 1
+  );
+  `,
+  `
+  DELETE FROM embeddings WHERE item_id IN (
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY LOWER(github_owner), LOWER(github_repo)
+        ORDER BY updated_at DESC, id DESC
+      ) AS rn
+      FROM items
+      WHERE github_owner IS NOT NULL AND github_repo IS NOT NULL
+    )
+    WHERE rn > 1
+  );
+  `,
+  `
+  DELETE FROM items WHERE id IN (
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY LOWER(github_owner), LOWER(github_repo)
+        ORDER BY updated_at DESC, id DESC
+      ) AS rn
+      FROM items
+      WHERE github_owner IS NOT NULL AND github_repo IS NOT NULL
+    )
+    WHERE rn > 1
+  );
+  `,
+  `
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_items_github_unique
+  ON items(github_owner COLLATE NOCASE, github_repo COLLATE NOCASE);
+  `,
+];
 
+// Optional FTS5 schema; sql.js default build does not include fts5 extension.
+export const FTS5_MIGRATIONS: string[] = [
+  `
   CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
     title,
     description,
@@ -117,7 +189,5 @@ export const MIGRATIONS: string[] = [
     INSERT INTO items_fts(items_fts, rowid, title, description, readme_content, readme_summary)
     VALUES ('delete', old.id, old.title, old.description, old.readme_content, old.readme_summary);
   END;
-
-  INSERT OR IGNORE INTO sync_meta (id, device_id, schema_version) VALUES (1, lower(hex(randomblob(16))), ${SCHEMA_VERSION});
   `,
 ];

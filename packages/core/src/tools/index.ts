@@ -137,14 +137,20 @@ export function testRegex(pattern: string, flags: string, text: string): RegexRe
   try {
     const re = new RegExp(pattern, flags);
     const matches: RegexResult['matches'] = [];
+    const maxMatches = 1000;
     let match: RegExpExecArray | null;
     while ((match = re.exec(text)) !== null) {
+      if (matches.length >= maxMatches) break;
       matches.push({
         text: match[0],
         index: match.index,
         groups: match.length > 1 ? match.slice(1) : undefined,
       });
       if (!flags.includes('g')) break;
+      // Avoid infinite loop on zero-width matches (e.g. /()/g).
+      if (match[0].length === 0) {
+        re.lastIndex++;
+      }
     }
     return { valid: true, matches };
   } catch (err) {
