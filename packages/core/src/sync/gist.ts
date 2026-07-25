@@ -92,6 +92,11 @@ export class GistSyncEngine implements SyncEngine {
     });
     if (!res.ok) {
       const text = await res.text();
+      if (res.status === 404) {
+        throw new Error(
+          `Gist 创建失败（404）：当前 GitHub Token 可能没有 gist 权限。请在 GitHub Settings → Developer settings → Personal access tokens 中重新生成 Token，并勾选 gist 权限。`
+        );
+      }
       throw new Error(`Gist create failed: ${res.status} ${text}`);
     }
     return (await res.json()) as { id: string };
@@ -110,6 +115,11 @@ export class GistSyncEngine implements SyncEngine {
     });
     if (!res.ok) {
       const text = await res.text();
+      if (res.status === 404) {
+        throw new Error(
+          `Gist 更新失败（404）：Gist ID 不存在或当前 GitHub Token 没有 gist 权限。请检查 Gist ID，或在 Token 中勾选 gist 权限。`
+        );
+      }
       throw new Error(`Gist update failed: ${res.status} ${text}`);
     }
   }

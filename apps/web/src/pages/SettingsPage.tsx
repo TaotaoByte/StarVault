@@ -239,7 +239,7 @@ export default function SettingsPage({
               >
                 GitHub Settings → Developer settings → Personal access tokens
               </a>{' '}
-              生成，需要 public_repo 或 repo 权限。
+              生成，需要勾选 <strong>gist</strong>、<strong>public_repo</strong> 或 <strong>repo</strong> 权限（gist 用于数据同步，repo 用于拉取 Stars）。
             </p>
           </div>
         </CardContent>
