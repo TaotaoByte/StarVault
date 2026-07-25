@@ -159,8 +159,10 @@ export const MIGRATIONS: string[] = [
   ON items(github_owner COLLATE NOCASE, github_repo COLLATE NOCASE);
   `,
   // Schema v2: add user rating for website/software items.
+  // Note: SQLite does not support IF NOT EXISTS on ADD COLUMN; failure on
+  // subsequent runs is ignored by the migration runner.
   `
-  ALTER TABLE items ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT 0;
+  ALTER TABLE items ADD COLUMN rating INTEGER DEFAULT 0;
   `,
 ];
 
