@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge } from '@starvault/ui';
-import { Github, Globe, Box, Search, Sparkles, Brain, RefreshCw, Plus, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import { Github, Globe, Box, Search, Sparkles, Brain, RefreshCw, Plus, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Item } from '@starvault/core';
 import { VirtualItemGrid } from '../components/VirtualItemGrid.js';
 
@@ -44,9 +44,8 @@ export default function ItemListPage({
 }: ItemListPageProps) {
   const [query, setQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<
-    'created-desc' | 'created-asc' | 'updated-desc' | 'updated-asc' | 'title-asc' | 'title-desc' | 'stars-desc' | 'stars-asc'
-  >('created-desc');
+  const [sortField, setSortField] = useState<'created' | 'updated' | 'title' | 'stars'>('created');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -70,29 +69,25 @@ export default function ItemListPage({
       result = result.filter(i => selectedTags.every(tag => i.tags?.includes(tag)));
     }
     result = [...result].sort((a, b) => {
-      switch (sortBy) {
-        case 'created-desc':
-          return b.createdAt.localeCompare(a.createdAt);
-        case 'created-asc':
-          return a.createdAt.localeCompare(b.createdAt);
-        case 'updated-desc':
-          return b.updatedAt.localeCompare(a.updatedAt);
-        case 'updated-asc':
-          return a.updatedAt.localeCompare(b.updatedAt);
-        case 'title-asc':
-          return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
-        case 'title-desc':
-          return b.title.localeCompare(a.title, undefined, { sensitivity: 'base' });
-        case 'stars-desc':
-          return (b.githubStars ?? 0) - (a.githubStars ?? 0);
-        case 'stars-asc':
-          return (a.githubStars ?? 0) - (b.githubStars ?? 0);
-        default:
-          return 0;
+      let cmp = 0;
+      switch (sortField) {
+        case 'created':
+          cmp = a.createdAt.localeCompare(b.createdAt);
+          break;
+        case 'updated':
+          cmp = a.updatedAt.localeCompare(b.updatedAt);
+          break;
+        case 'title':
+          cmp = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+          break;
+        case 'stars':
+          cmp = (a.githubStars ?? 0) - (b.githubStars ?? 0);
+          break;
       }
+      return sortOrder === 'asc' ? cmp : -cmp;
     });
     return result;
-  }, [items, type, query, selectedTags, sortBy]);
+  }, [items, type, query, selectedTags, sortField, sortOrder]);
 
   const config = typeConfig[type];
 
@@ -119,22 +114,24 @@ export default function ItemListPage({
               onChange={e => setQuery(e.target.value)}
             />
           </div>
-          <div className="relative">
-            <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+          <div className="flex items-center gap-1">
             <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as typeof sortBy)}
-              className="h-9 w-44 rounded-lg border border-border bg-bg-primary pl-8 pr-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent appearance-none"
+              value={sortField}
+              onChange={e => setSortField(e.target.value as typeof sortField)}
+              className="h-9 w-28 rounded-lg border border-border bg-bg-primary px-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent appearance-none"
             >
-              <option value="created-desc">添加时间（最新）</option>
-              <option value="created-asc">添加时间（最早）</option>
-              <option value="updated-desc">更新时间（最新）</option>
-              <option value="updated-asc">更新时间（最早）</option>
-              <option value="title-asc">名称 A-Z</option>
-              <option value="title-desc">名称 Z-A</option>
-              <option value="stars-desc">Stars 数（高→低）</option>
-              <option value="stars-asc">Stars 数（低→高）</option>
+              <option value="created">添加时间</option>
+              <option value="updated">更新时间</option>
+              <option value="title">名称</option>
+              <option value="stars">Stars 数</option>
             </select>
+            <button
+              onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+              title={sortOrder === 'asc' ? '升序' : '降序'}
+              className="h-9 w-9 rounded-lg border border-border bg-bg-primary flex items-center justify-center text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              {sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+            </button>
           </div>
           {type === 'github' && (
             <Button variant="secondary" size="sm" onClick={onSync} disabled={isSyncing || !githubToken} className="gap-1.5">

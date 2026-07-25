@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge } from '@starvault/ui';
-import { Brain, Search, Sparkles, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import { Brain, Search, Sparkles, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Item, AiProviderConfig } from '@starvault/core';
 import { semanticSearch, hybridSearch, createAiProvider, findSimilarItems } from '@starvault/core';
 import { useAppStore } from '../stores/appStore.js';
@@ -21,35 +21,30 @@ export default function AiSearchPage({ aiConfig, onGenerateItemTags, onShowSimil
   const [mode, setMode] = useState<'semantic' | 'similar'>('semantic');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [message, setMessage] = useState('');
-  const [sortBy, setSortBy] = useState<
-    'relevance' | 'created-desc' | 'created-asc' | 'updated-desc' | 'updated-asc' | 'title-asc' | 'title-desc' | 'stars-desc' | 'stars-asc'
-  >('relevance');
+  const [sortField, setSortField] = useState<'relevance' | 'created' | 'updated' | 'title' | 'stars'>('relevance');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const sortedResults = useMemo(() => {
-    if (sortBy === 'relevance') return results;
+    if (sortField === 'relevance') return results;
     return [...results].sort((a, b) => {
-      switch (sortBy) {
-        case 'created-desc':
-          return b.createdAt.localeCompare(a.createdAt);
-        case 'created-asc':
-          return a.createdAt.localeCompare(b.createdAt);
-        case 'updated-desc':
-          return b.updatedAt.localeCompare(a.updatedAt);
-        case 'updated-asc':
-          return a.updatedAt.localeCompare(b.updatedAt);
-        case 'title-asc':
-          return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
-        case 'title-desc':
-          return b.title.localeCompare(a.title, undefined, { sensitivity: 'base' });
-        case 'stars-desc':
-          return (b.githubStars ?? 0) - (a.githubStars ?? 0);
-        case 'stars-asc':
-          return (a.githubStars ?? 0) - (b.githubStars ?? 0);
-        default:
-          return 0;
+      let cmp = 0;
+      switch (sortField) {
+        case 'created':
+          cmp = a.createdAt.localeCompare(b.createdAt);
+          break;
+        case 'updated':
+          cmp = a.updatedAt.localeCompare(b.updatedAt);
+          break;
+        case 'title':
+          cmp = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+          break;
+        case 'stars':
+          cmp = (a.githubStars ?? 0) - (b.githubStars ?? 0);
+          break;
       }
+      return sortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [results, sortBy]);
+  }, [results, sortField, sortOrder]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -124,25 +119,27 @@ export default function AiSearchPage({ aiConfig, onGenerateItemTags, onShowSimil
           </div>
 
           <div className="flex items-center justify-center gap-2 text-sm text-text-secondary">
-            <span className="flex items-center gap-1">
-              <ArrowUpDown className="h-4 w-4" />
-              排序
-            </span>
+            <span>排序</span>
             <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as typeof sortBy)}
+              value={sortField}
+              onChange={e => setSortField(e.target.value as typeof sortField)}
               className="bg-bg-primary border border-border rounded-md px-2 py-1 text-text-primary"
             >
               <option value="relevance">相关度</option>
-              <option value="created-desc">添加时间（最新）</option>
-              <option value="created-asc">添加时间（最早）</option>
-              <option value="updated-desc">更新时间（最新）</option>
-              <option value="updated-asc">更新时间（最早）</option>
-              <option value="title-asc">名称 A-Z</option>
-              <option value="title-desc">名称 Z-A</option>
-              <option value="stars-desc">Stars 数（高→低）</option>
-              <option value="stars-asc">Stars 数（低→高）</option>
+              <option value="created">添加时间</option>
+              <option value="updated">更新时间</option>
+              <option value="title">名称</option>
+              <option value="stars">Stars 数</option>
             </select>
+            {sortField !== 'relevance' && (
+              <button
+                onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+                title={sortOrder === 'asc' ? '升序' : '降序'}
+                className="h-7 w-7 rounded-md border border-border bg-bg-primary flex items-center justify-center text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                {sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+              </button>
+            )}
           </div>
 
           {mode === 'similar' && (
