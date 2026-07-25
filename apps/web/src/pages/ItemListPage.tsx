@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge } from '@starvault/ui';
-import { Github, Globe, Box, Search, Sparkles, Brain, RefreshCw, Plus, Pencil, Trash2, ArrowUp, ArrowDown, Library } from 'lucide-react';
+import { Github, Globe, Box, Search, Sparkles, Brain, RefreshCw, Plus, Pencil, Trash2, ArrowUp, ArrowDown, Library, Tag, X } from 'lucide-react';
 import type { Item } from '@starvault/core';
 import { VirtualItemGrid } from '../components/VirtualItemGrid.js';
 
@@ -46,6 +46,7 @@ export default function ItemListPage({
 }: ItemListPageProps) {
   const [query, setQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagFilterOpen, setTagFilterOpen] = useState(false);
   const [sortField, setSortField] = useState<'created' | 'updated' | 'title' | 'stars' | 'rating'>('created');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -119,6 +120,71 @@ export default function ItemListPage({
               onChange={e => setQuery(e.target.value)}
             />
           </div>
+          <div className="relative">
+            <button
+              onClick={() => setTagFilterOpen(v => !v)}
+              title="标签筛选"
+              className={`h-9 rounded-lg border px-3 flex items-center gap-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent ${
+                selectedTags.length > 0
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border bg-bg-primary text-text-primary hover:bg-bg-secondary'
+              }`}
+            >
+              <Tag className="h-4 w-4" />
+              <span>标签</span>
+              {selectedTags.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-accent px-1.5 py-0 text-xs text-white">{selectedTags.length}</span>
+              )}
+            </button>
+            {tagFilterOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-border bg-bg-primary p-3 shadow-xl">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
+                  <span className="text-sm font-medium">标签筛选</span>
+                  <button
+                    onClick={() => setTagFilterOpen(false)}
+                    className="text-text-tertiary hover:text-text-primary"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {allTags.length === 0 ? (
+                  <p className="text-xs text-text-secondary py-2">暂无标签</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto">
+                    {allTags.map(tag => {
+                      const active = selectedTags.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          onClick={() =>
+                            setSelectedTags(prev => (active ? prev.filter(t => t !== tag) : [...prev, tag]))
+                          }
+                          className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
+                            active
+                              ? 'bg-accent text-white'
+                              : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedTags.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border flex items-center justify-between">
+                    <span className="text-xs text-text-secondary">已选 {selectedTags.length} 个</span>
+                    <button
+                      onClick={() => setSelectedTags([])}
+                      className="text-xs text-text-tertiary hover:text-text-primary underline"
+                    >
+                      清除
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-1">
             <select
               value={sortField}
@@ -169,38 +235,6 @@ export default function ItemListPage({
           </Button>
         </div>
       </header>
-
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 pb-3">
-          <span className="text-xs text-text-tertiary">标签筛选：</span>
-          {allTags.map(tag => {
-            const active = selectedTags.includes(tag);
-            return (
-              <button
-                key={tag}
-                onClick={() =>
-                  setSelectedTags(prev => (active ? prev.filter(t => t !== tag) : [...prev, tag]))
-                }
-                className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
-                  active
-                    ? 'bg-accent text-white'
-                    : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {tag}
-              </button>
-            );
-          })}
-          {selectedTags.length > 0 && (
-            <button
-              onClick={() => setSelectedTags([])}
-              className="text-xs text-text-tertiary hover:text-text-primary underline"
-            >
-              清除
-            </button>
-          )}
-        </div>
-      )}
 
       <div className="flex-1 min-h-0">
         {filteredItems.length === 0 ? (
