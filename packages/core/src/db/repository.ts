@@ -11,8 +11,8 @@ export class Repository {
       `INSERT INTO items (id, type, source_url, title, description,
         github_owner, github_repo, github_stars, github_forks, github_language,
         github_topics, readme_content, readme_summary, last_sync_at, icon_url,
-        screenshot_urls, notes, created_at, updated_at, user_created, is_archived)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        screenshot_urls, notes, rating, created_at, updated_at, user_created, is_archived)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.type,
@@ -31,6 +31,7 @@ export class Repository {
         item.iconUrl,
         stringifyJson(item.screenshotUrls),
         item.notes,
+        item.rating ?? 0,
         item.createdAt,
         item.updatedAt,
         item.userCreated ? 1 : 0,
@@ -59,6 +60,7 @@ export class Repository {
       icon_url: item.iconUrl,
       screenshot_urls: item.screenshotUrls !== undefined ? stringifyJson(item.screenshotUrls) : undefined,
       notes: item.notes,
+      rating: item.rating,
       updated_at: now(),
       user_created: item.userCreated !== undefined ? (item.userCreated ? 1 : 0) : undefined,
       is_archived: item.isArchived !== undefined ? (item.isArchived ? 1 : 0) : undefined,
@@ -81,7 +83,7 @@ export class Repository {
               github_language as githubLanguage, github_topics as githubTopics,
               readme_content as readmeContent, readme_summary as readmeSummary,
               last_sync_at as lastSyncAt, icon_url as iconUrl,
-              screenshot_urls as screenshotUrls, notes,
+              screenshot_urls as screenshotUrls, notes, rating,
               created_at as createdAt, updated_at as updatedAt,
               user_created as userCreated, is_archived as isArchived
        FROM items WHERE is_archived = 0 ORDER BY updated_at DESC`
@@ -101,7 +103,7 @@ export class Repository {
               github_language as githubLanguage, github_topics as githubTopics,
               readme_content as readmeContent, readme_summary as readmeSummary,
               last_sync_at as lastSyncAt, icon_url as iconUrl,
-              screenshot_urls as screenshotUrls, notes,
+              screenshot_urls as screenshotUrls, notes, rating,
               created_at as createdAt, updated_at as updatedAt,
               user_created as userCreated, is_archived as isArchived
        FROM items WHERE LOWER(github_owner) = LOWER(?) AND LOWER(github_repo) = LOWER(?)
@@ -300,6 +302,7 @@ export class Repository {
       iconUrl: row.iconUrl,
       screenshotUrls: parseJson(row.screenshotUrls, []),
       notes: row.notes,
+      rating: row.rating ?? 0,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       userCreated: Boolean(row.userCreated),
@@ -326,6 +329,7 @@ interface RawItem {
   iconUrl: string | null;
   screenshotUrls: string;
   notes: string | null;
+  rating: number;
   createdAt: string;
   updatedAt: string;
   userCreated: number;

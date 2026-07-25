@@ -22,6 +22,7 @@ export interface Item {
   iconUrl: string | null;
   screenshotUrls: string[];
   notes: string | null;
+  rating: number;
 
   // Runtime
   tags?: string[];

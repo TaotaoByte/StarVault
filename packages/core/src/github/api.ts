@@ -105,6 +105,7 @@ export function githubRepoToItem(repo: GitHubRepo): Item {
     iconUrl: null,
     screenshotUrls: [],
     notes: null,
+    rating: 0,
     createdAt: now(),
     updatedAt: now(),
     userCreated: false,

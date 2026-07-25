@@ -4,10 +4,12 @@ import {
   githubRepoToItem,
   now,
   parseTagSuggestions,
+  parseWebsiteInfoSuggestion,
   Repository,
   SqlJsAdapter,
   SUMMARY_PROMPT,
   buildTagPrompt,
+  buildWebsiteInfoPrompt,
   truncateReadme,
   GistSyncEngine,
   createAiProvider,
@@ -16,6 +18,7 @@ import {
   migrate,
   type Item,
   type AiProviderConfig,
+  type RecommendedItem,
 } from '@starvault/core';
 import { Button, Card, CardContent, useTheme } from '@starvault/ui';
 import {
@@ -49,6 +52,7 @@ import StatsPage from './pages/StatsPage.js';
 import SettingsPage from './pages/SettingsPage.js';
 import ProfilePage from './pages/ProfilePage.js';
 import ItemEditDialog from './components/ItemEditDialog.js';
+import RecommendationsDialog from './components/RecommendationsDialog.js';
 
 type Page =
   | 'dashboard'
@@ -81,6 +85,7 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [similarItems, setSimilarItems] = useState<Item[]>([]);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [showRecommendations, setShowRecommendations] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -97,7 +102,7 @@ export default function App() {
         }
         loadItems(adapter);
         setMessage('数据库已就绪');
-        handleUrlAdd(adapter);
+        await handleUrlAdd(adapter);
       } catch (err) {
         setMessage(`初始化失败: ${(err as Error).message}`);
       }
@@ -124,7 +129,7 @@ export default function App() {
     store.setItems(items);
   };
 
-  const handleUrlAdd = (adapter = store.db) => {
+  const handleUrlAdd = async (adapter = store.db) => {
     if (!adapter) return;
     const params = new URLSearchParams(window.location.search);
     const addUrl = params.get('addUrl');
@@ -156,14 +161,34 @@ export default function App() {
       iconUrl: null,
       screenshotUrls: [],
       notes: params.get('addNotes') ?? null,
+      rating: 0,
       createdAt: now(),
       updatedAt: now(),
       userCreated: true,
       isArchived: false,
     };
     repo.insertItem(item);
+
+    if (aiKey) {
+      try {
+        const ai = createAiProvider(getAiConfig());
+        const response = await ai.chatCompletion(buildWebsiteInfoPrompt(item));
+        const suggestion = parseWebsiteInfoSuggestion(response);
+        if (suggestion) {
+          if (suggestion.description) {
+            repo.updateItem({ id: item.id, description: suggestion.description });
+          }
+          enrichAndInsert(repo, item, suggestion.tags, true);
+        }
+        setMessage(`已添加并生成简介: ${item.title}`);
+      } catch {
+        setMessage(`已添加收藏: ${item.title}`);
+      }
+    } else {
+      setMessage(`已添加收藏: ${item.title}`);
+    }
+
     loadItems(adapter);
-    setMessage(`已添加收藏: ${item.title}`);
 
     params.delete('addUrl');
     params.delete('addTitle');
@@ -309,7 +334,7 @@ export default function App() {
       return;
     }
     setIsTagging(true);
-    setMessage('正在生成 AI 标签...');
+    setMessage('正在生成 AI 标签与简介...');
     try {
       const ai = createAiProvider(getAiConfig());
       const repo = new Repository(store.db);
@@ -318,9 +343,21 @@ export default function App() {
       await Promise.all(
         items.map(item =>
           limit(async () => {
-            const response = await ai.chatCompletion(buildTagPrompt(item));
-            const suggestions = parseTagSuggestions(response);
-            enrichAndInsert(repo, item, suggestions, true);
+            const isWebsiteOrSoftware = item.type === 'website' || item.type === 'software';
+            if (isWebsiteOrSoftware) {
+              const response = await ai.chatCompletion(buildWebsiteInfoPrompt(item));
+              const suggestion = parseWebsiteInfoSuggestion(response);
+              if (suggestion) {
+                if (suggestion.description && !item.description?.trim()) {
+                  repo.updateItem({ id: item.id, description: suggestion.description });
+                }
+                enrichAndInsert(repo, item, suggestion.tags, true);
+              }
+            } else {
+              const response = await ai.chatCompletion(buildTagPrompt(item));
+              const suggestions = parseTagSuggestions(response);
+              enrichAndInsert(repo, item, suggestions, true);
+            }
           })
         )
       );
@@ -352,25 +389,41 @@ export default function App() {
       setPage('settings');
       return;
     }
-    setMessage(`正在为 ${item.title} 生成标签...`);
+    const isWebsiteOrSoftware = item.type === 'website' || item.type === 'software';
+    setMessage(`正在为 ${item.title} 生成${isWebsiteOrSoftware ? '简介和标签' : '标签'}...`);
     try {
       const ai = createAiProvider(getAiConfig());
       const repo = new Repository(store.db);
-      const response = await ai.chatCompletion(buildTagPrompt(item));
-      const suggestions = parseTagSuggestions(response);
-      if (suggestions.length === 0) {
-        setMessage(`AI 未返回有效标签，请检查模型是否支持当前提示词格式`);
-        return;
+      if (isWebsiteOrSoftware) {
+        const response = await ai.chatCompletion(buildWebsiteInfoPrompt(item));
+        const suggestion = parseWebsiteInfoSuggestion(response);
+        if (!suggestion || suggestion.tags.length === 0) {
+          setMessage(`AI 未返回有效结果，请检查模型是否支持当前提示词格式`);
+          return;
+        }
+        if (suggestion.description && !item.description?.trim()) {
+          repo.updateItem({ id: item.id, description: suggestion.description });
+        }
+        enrichAndInsert(repo, item, suggestion.tags, true);
+        loadItems();
+        setMessage(`已为 ${item.title} 生成简介和 ${suggestion.tags.length} 个标签`);
+      } else {
+        const response = await ai.chatCompletion(buildTagPrompt(item));
+        const suggestions = parseTagSuggestions(response);
+        if (suggestions.length === 0) {
+          setMessage(`AI 未返回有效标签，请检查模型是否支持当前提示词格式`);
+          return;
+        }
+        enrichAndInsert(repo, item, suggestions, true);
+        loadItems();
+        setMessage(`已为 ${item.title} 生成 ${suggestions.length} 个标签`);
       }
-      enrichAndInsert(repo, item, suggestions, true);
-      loadItems();
-      setMessage(`已为 ${item.title} 生成 ${suggestions.length} 个标签`);
     } catch (err) {
       setMessage(`标签生成失败: ${(err as Error).message}`);
     }
   };
 
-  const addManualItem = (type: Item['type'] = 'website') => {
+  const addManualItem = async (type: Item['type'] = 'website') => {
     if (!store.db) return;
     const title = prompt('输入标题');
     const url = prompt('输入 URL');
@@ -394,13 +447,74 @@ export default function App() {
       iconUrl: null,
       screenshotUrls: [],
       notes: null,
+      rating: 0,
       createdAt: now(),
       updatedAt: now(),
       userCreated: true,
       isArchived: false,
     };
     repo.insertItem(item);
+
+    const isWebsiteOrSoftware = type === 'website' || type === 'software';
+    if (isWebsiteOrSoftware && aiKey) {
+      try {
+        setMessage(`正在为 ${item.title} 生成简介和标签...`);
+        const ai = createAiProvider(getAiConfig());
+        const response = await ai.chatCompletion(buildWebsiteInfoPrompt(item));
+        const suggestion = parseWebsiteInfoSuggestion(response);
+        if (suggestion) {
+          if (suggestion.description) {
+            repo.updateItem({ id: item.id, description: suggestion.description });
+          }
+          enrichAndInsert(repo, item, suggestion.tags, true);
+        }
+        setMessage(`已添加并生成简介: ${item.title}`);
+      } catch {
+        setMessage(`已添加: ${item.title}`);
+      }
+    } else {
+      setMessage(`已添加: ${item.title}`);
+    }
     loadItems();
+  };
+
+  const addRecommendedItem = (recommended: RecommendedItem) => {
+    if (!store.db) return;
+    const repo = new Repository(store.db);
+    const item: Item = {
+      id: crypto.randomUUID(),
+      type: recommended.type,
+      sourceUrl: recommended.sourceUrl,
+      title: recommended.title,
+      description: recommended.description,
+      githubOwner: null,
+      githubRepo: null,
+      githubStars: 0,
+      githubForks: 0,
+      githubLanguage: null,
+      githubTopics: [],
+      readmeContent: null,
+      readmeSummary: null,
+      lastSyncAt: null,
+      iconUrl: null,
+      screenshotUrls: [],
+      notes: null,
+      rating: recommended.rating,
+      createdAt: now(),
+      updatedAt: now(),
+      userCreated: true,
+      isArchived: false,
+    };
+    repo.insertItem(item);
+    repo.setItemTags(item.id, recommended.tags);
+    loadItems();
+  };
+
+  const addAllRecommendedItems = (items: RecommendedItem[]) => {
+    for (const item of items) {
+      addRecommendedItem(item);
+    }
+    setMessage(`已添加 ${items.length} 个推荐项目`);
   };
 
   const handleUpdateItem = (item: Item, tags: string[]) => {
@@ -412,6 +526,7 @@ export default function App() {
       sourceUrl: item.sourceUrl,
       description: item.description,
       notes: item.notes,
+      rating: item.rating,
       updatedAt: item.updatedAt,
     });
     repo.setItemTags(item.id, tags);
@@ -586,6 +701,7 @@ export default function App() {
               onGenerateItemTags={handleGenerateItemTags}
               onShowSimilar={handleShowSimilar}
               onAddItem={() => addManualItem(pageType as 'github' | 'website' | 'software' | 'tool')}
+              onShowRecommendations={() => setShowRecommendations(true)}
               onEditItem={setEditingItem}
               onDeleteItem={handleDeleteItem}
             />
@@ -691,6 +807,16 @@ export default function App() {
           item={editingItem}
           onSave={handleUpdateItem}
           onClose={() => setEditingItem(null)}
+        />
+      )}
+
+      {showRecommendations && (
+        <RecommendationsDialog
+          type={pageType === 'github' || pageType === 'all' ? 'all' : pageType}
+          existingUrls={store.items.map(i => i.sourceUrl)}
+          onAdd={addRecommendedItem}
+          onAddAll={addAllRecommendedItems}
+          onClose={() => setShowRecommendations(false)}
         />
       )}
     </div>

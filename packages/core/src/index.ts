@@ -8,3 +8,4 @@ export * from './github/index.js';
 export * from './tools/index.js';
 export * from './import-export/index.js';
 export * from './stats/index.js';
+export * from './recommendations.js';

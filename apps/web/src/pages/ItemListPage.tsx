@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge } from '@starvault/ui';
-import { Github, Globe, Box, Search, Sparkles, Brain, RefreshCw, Plus, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Github, Globe, Box, Search, Sparkles, Brain, RefreshCw, Plus, Pencil, Trash2, ArrowUp, ArrowDown, Library } from 'lucide-react';
 import type { Item } from '@starvault/core';
 import { VirtualItemGrid } from '../components/VirtualItemGrid.js';
 
@@ -16,6 +16,7 @@ interface ItemListPageProps {
   onGenerateItemTags: (item: Item) => void;
   onShowSimilar: (item: Item) => void;
   onAddItem: () => void;
+  onShowRecommendations?: () => void;
   onEditItem?: (item: Item) => void;
   onDeleteItem?: (item: Item) => void;
 }
@@ -39,12 +40,13 @@ export default function ItemListPage({
   onGenerateItemTags,
   onShowSimilar,
   onAddItem,
+  onShowRecommendations,
   onEditItem,
   onDeleteItem,
 }: ItemListPageProps) {
   const [query, setQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<'created' | 'updated' | 'title' | 'stars'>('created');
+  const [sortField, setSortField] = useState<'created' | 'updated' | 'title' | 'stars' | 'rating'>('created');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const allTags = useMemo(() => {
@@ -82,6 +84,9 @@ export default function ItemListPage({
           break;
         case 'stars':
           cmp = (a.githubStars ?? 0) - (b.githubStars ?? 0);
+          break;
+        case 'rating':
+          cmp = (a.rating ?? 0) - (b.rating ?? 0);
           break;
       }
       return sortOrder === 'asc' ? cmp : -cmp;
@@ -124,6 +129,7 @@ export default function ItemListPage({
               <option value="updated">更新时间</option>
               <option value="title">名称</option>
               <option value="stars">Stars 数</option>
+              <option value="rating">评分 / 热度</option>
             </select>
             <button
               onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
@@ -147,6 +153,14 @@ export default function ItemListPage({
             </span>
             <span className="flex h-4 items-center leading-none">{isGistSyncing ? '同步中...' : '同步 Gist'}</span>
           </Button>
+          {onShowRecommendations && type !== 'github' && (
+            <Button variant="secondary" size="sm" onClick={onShowRecommendations} className="gap-1.5">
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <Library className="h-4 w-4" />
+              </span>
+              <span className="flex h-4 items-center leading-none">推荐</span>
+            </Button>
+          )}
           <Button size="sm" onClick={onAddItem} className="gap-1.5">
             <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
               <Plus className="h-4 w-4" />
@@ -221,6 +235,7 @@ export default function ItemListPage({
                     <div className="flex flex-wrap gap-2">
                       {item.githubLanguage && <Badge>{item.githubLanguage}</Badge>}
                       {item.githubStars > 0 && <Badge>⭐ {item.githubStars}</Badge>}
+                      {item.rating > 0 && <Badge>🔥 {item.rating}</Badge>}
                       {item.tags?.map(tag => (
                         <Badge key={tag} color="#8b5cf6">
                           {tag}

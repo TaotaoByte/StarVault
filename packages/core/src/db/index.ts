@@ -7,8 +7,15 @@ export * from './repository.js';
 export { MIGRATIONS, FTS5_MIGRATIONS } from './schema.js';
 
 export async function migrate(adapter: DatabaseAdapter): Promise<void> {
+  // Migrations are idempotent; continue on individual failures so optional
+  // schema upgrades (e.g. ALTER TABLE ADD COLUMN IF NOT EXISTS) do not block
+  // older databases from starting up.
   for (const migration of MIGRATIONS) {
-    adapter.exec(migration);
+    try {
+      adapter.exec(migration);
+    } catch {
+      // ignore single migration failures
+    }
   }
   // FTS5 is optional; default sql.js builds do not include the extension.
   try {

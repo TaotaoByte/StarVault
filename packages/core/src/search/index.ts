@@ -46,13 +46,14 @@ export async function keywordSearch(
       readme_summary: string | null;
       last_sync_at: string | null;
       icon_url: string | null;
-      screenshot_urls: string;
-      notes: string | null;
-      created_at: string;
-      updated_at: string;
-      user_created: number;
-      is_archived: number;
-    }>(
+    screenshot_urls: string;
+    notes: string | null;
+    rating: number;
+    created_at: string;
+    updated_at: string;
+    user_created: number;
+    is_archived: number;
+  }>(
       `SELECT i.* FROM items i
        JOIN items_fts fts ON fts.rowid = i.id
        WHERE items_fts MATCH ? ${archivedFilter}
@@ -87,6 +88,7 @@ export async function keywordSearch(
     icon_url: string | null;
     screenshot_urls: string;
     notes: string | null;
+    rating: number;
     created_at: string;
     updated_at: string;
     user_created: number;
@@ -135,6 +137,7 @@ export async function tagSearch(
     icon_url: string | null;
     screenshot_urls: string;
     notes: string | null;
+    rating: number;
     created_at: string;
     updated_at: string;
     user_created: number;
@@ -373,12 +376,13 @@ function rowToItem(row: {
   readme_summary: string | null;
   last_sync_at: string | null;
   icon_url: string | null;
-  screenshot_urls: string;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  user_created: number;
-  is_archived: number;
+    screenshot_urls: string;
+    notes: string | null;
+    rating: number;
+    created_at: string;
+    updated_at: string;
+    user_created: number;
+    is_archived: number;
 }): Item {
   return {
     id: row.id,
@@ -398,6 +402,7 @@ function rowToItem(row: {
     iconUrl: row.icon_url,
     screenshotUrls: parseTopics(row.screenshot_urls),
     notes: row.notes,
+    rating: row.rating ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     userCreated: Boolean(row.user_created),

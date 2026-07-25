@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const MIGRATIONS: string[] = [
   `
@@ -22,6 +22,7 @@ export const MIGRATIONS: string[] = [
     icon_url        TEXT,
     screenshot_urls TEXT,
     notes           TEXT,
+    rating          INTEGER DEFAULT 0,
 
     created_at      TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at      TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -156,6 +157,10 @@ export const MIGRATIONS: string[] = [
   `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_items_github_unique
   ON items(github_owner COLLATE NOCASE, github_repo COLLATE NOCASE);
+  `,
+  // Schema v2: add user rating for website/software items.
+  `
+  ALTER TABLE items ADD COLUMN IF NOT EXISTS rating INTEGER DEFAULT 0;
   `,
 ];
 

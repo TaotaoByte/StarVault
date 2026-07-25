@@ -65,6 +65,50 @@ README摘要：${item.readmeSummary ?? ''}
 4. 标签名用英文，但reason用中文`;
 }
 
+export function buildWebsiteInfoPrompt(item: Item): string {
+  return `请根据以下网站/软件的信息，生成一段简洁的中文简介和一组相关标签。
+
+名称：${item.title}
+URL：${item.sourceUrl}
+已有描述：${item.description ?? ''}
+类型：${item.type === 'website' ? '网站' : '软件'}
+
+要求：
+1. 简介长度 50-150 字，说明主要功能、用途和适用人群
+2. 如果无法判断，请基于 URL 和名称给出合理推测
+3. 标签 5-10 个，包含：领域分类、用途类型、相关技术/平台
+4. 标签名用英文，但简介用中文
+5. 返回严格 JSON 格式，不要 Markdown 代码块：{"description": "...", "tags": [{"name": "...", "confidence": 0.95, "reason": "..."}]}`;
+}
+
+export interface WebsiteInfoSuggestion {
+  description: string;
+  tags: TagSuggestion[];
+}
+
+export function parseWebsiteInfoSuggestion(response: string): WebsiteInfoSuggestion | null {
+  try {
+    let cleaned = response.trim();
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    const parsed = JSON.parse(cleaned) as {
+      description?: string;
+      tags?: { name: string; confidence: number; reason: string }[];
+    };
+    return {
+      description: (parsed.description ?? '').trim(),
+      tags: (parsed.tags ?? []).map(t => ({
+        tag: t.name,
+        confidence: t.confidence,
+        reason: t.reason,
+      })),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function parseTagSuggestions(response: string): TagSuggestion[] {
   try {
     // 去除可能的 markdown 代码块标记（如 ```json ... ```）
